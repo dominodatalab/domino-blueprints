@@ -1,2 +1,2 @@
-# domino-ps-accelerators
+# Introduction
 Examples for the Domino Accelerators
