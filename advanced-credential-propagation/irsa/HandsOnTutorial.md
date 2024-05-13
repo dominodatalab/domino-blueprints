@@ -26,8 +26,6 @@ Update the environment variable mutation as appropriate to your environment
     env:
     - name: AWS_WEB_IDENTITY_TOKEN_FILE
       value: /var/run/secrets/eks.amazonaws.com/serviceaccount/token
-    - name: AWS_CONFIG_FILE
-      value: /var/run/.aws/config
     - name: AWS_DEFAULT_REGION
       value: us-west-2
     - name: AWS_REGION
@@ -46,12 +44,86 @@ Next update the user to K8s service account mappings (see Pre-requisites)
       domino-jane-doe: jane-doe      
 ```
 
+And lastly it projects a Service Account token volume into the containers of the pod. This 
+[feature](https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/#serviceaccount-token-volume-projection) 
+is requires that you are using K8s 1.12 and above.
+
+```yaml
+  insertVolumes:
+  - name: aws-user-token
+    projected:
+      defaultMode: 422
+      sources:
+      - serviceAccountToken:
+          audience: sts.amazonaws.com
+          expirationSeconds: 86400
+          path: token
+  insertVolumeMounts:
+    volumeMounts:
+      - mountPath: /var/run/secrets/eks.amazonaws.com/serviceaccount/
+        name: aws-user-token
+```
+
 2. Apply the mutations
 
 ```shell
 export platform_namespace=domino-platform
 kubectl -n ${platform_namespace} apply -f ./user-identity-based-irsa.yaml
 ```
+
+And let us take a pause here before we discuss the updates that will be made on the AWS side. The most important part
+of the above mutation is the service account token volume projection. The JWT will have the file path 
+`/var/run/secrets/eks.amazonaws.com/serviceaccount/token`. This JWT is unlike the JWT issued by the `KubeAPIServer`. The
+token provided by the `KubeApiServer` does not have any expiry date on it and now that the issuer is not an OIDC provider
+associated with the EKS cluster.
+```json
+{
+  "iss": "kubernetes/serviceaccount",
+  "kubernetes.io/serviceaccount/namespace": "default",
+  "kubernetes.io/serviceaccount/secret.name": "default-token-x4sjk",
+  "kubernetes.io/serviceaccount/service-account.name": "default",
+  "kubernetes.io/serviceaccount/service-account.uid": "488d395f-34b0-4aab-871d-17087fc027f7",
+  "sub": "system:serviceaccount:default:default"
+}
+```
+
+In contrast the JWT stored in the `/var/run/secrets/eks.amazonaws.com/serviceaccount/token` has both the `iss` and 
+the `exp` attributes populated. 
+```json
+{
+  "aud": [
+    "sts.amazonaws.com"
+  ],
+  "exp": 1674755267,
+  "iat": 1674668867,
+  "iss": "https://oidc.eks.<AWS_REGION>.amazonaws.com/id/<OIDC_PROVIDER_ID>",
+  "kubernetes.io": {
+    "namespace": "domino-compute",
+    "pod": {
+      "name": "run-63d16b3ebe3729589c5bd9d8-mwlc2",
+      "uid": "210cd280-1fe8-41ef-af96-53af291fccea"
+    },
+    "serviceaccount": {
+      "name": "john-doe",
+      "uid": "314ffbf4-d847-4680-bbf9-e521aabe86a7"
+    }
+  },
+  "nbf": 1674668867,
+  "sub": "system:serviceaccount:domino-compute:john-doe"
+}
+```
+The mutation also sets up the environment variable `AWS_WEB_IDENTITY_TOKEN_FILE` 
+to `/var/run/secrets/eks.amazonaws.com/serviceaccount/token`. Boto3 uses this environment variable to implicitly
+pass the web identity to IAM. And this is how the pod authenticates to IAM as `system:serviceaccount:domino-compute:john-doe`
+in the above example. The precondition is that the OIDC Provider associated with the EKS cluster is added to IAM of the 
+target AWS Account in which the Domino workload wants to assume an IAM role in as an Identity Provider. This is the 
+crux of how the Domino workload authenticates to AWS IAM. Two good blogs that describes this process in detail are-
+
+1. [IAM Roles of K8s Service Accounts Deep Dive](https://mjarosie.github.io/dev/2021/09/15/iam-roles-for-kubernetes-service-accounts-deep-dive.html)
+2. [EKS Pod Identity Webhook Deep Dive] (https://blog.mikesir87.io/2020/09/eks-pod-identity-webhook-deep-dive/)
+
+Now that we understand how the Domino workload authenticates itself with AWS IAM, let us move to the access control part 
+of the process where we configure AWS IAM to permit the workload to assume IAM roles.
 
 3. Update your AWS trust policy for the role the user wants to assume (Ex. AWS Role `my-irsa-test-role`)
 

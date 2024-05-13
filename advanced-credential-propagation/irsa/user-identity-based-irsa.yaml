@@ -14,16 +14,7 @@ rules:
       test-user: test-user
       john-doe: john-doe
       jane-doe: jane-doe
-  insertVolumeMounts:
-    volumeMounts:
-    - mountPath: /var/run/.aws
-      name: aws-config-file
-    - mountPath: /var/run/secrets/eks.amazonaws.com/serviceaccount/
-      name: aws-user-token
   insertVolumes:
-  - emptyDir:
-      sizeLimit: 500Mi
-    name: aws-config-file
   - name: aws-user-token
     projected:
       defaultMode: 422
@@ -32,12 +23,14 @@ rules:
           audience: sts.amazonaws.com
           expirationSeconds: 86400
           path: token
+  insertVolumeMounts:
+    volumeMounts:
+      - mountPath: /var/run/secrets/eks.amazonaws.com/serviceaccount/
+        name: aws-user-token
   modifyEnv:
     env:
     - name: AWS_WEB_IDENTITY_TOKEN_FILE
       value: /var/run/secrets/eks.amazonaws.com/serviceaccount/token
-    - name: AWS_CONFIG_FILE
-      value: /var/run/.aws/config
     - name: AWS_DEFAULT_REGION
       value: us-west-2
     - name: AWS_REGION
