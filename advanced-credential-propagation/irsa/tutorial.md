@@ -191,13 +191,16 @@ This should produce the output below which indicates that you have successfully 
 
 ### Bringing it all together
 
-We shall emulate the entire process in a vanilla EKS cluster (with no `domsed` installed). Furthermore, make sure you
-configure the trust policy of a Target AWS role in a Target AWS Account where you are assuming the Role. Also add the 
-OIDC provider associated with the EKS cluster into the Target AWS Account as an Identity Provider. We shall refer to 
-these variables as the 
+We shall emulate the entire process in a vanilla EKS cluster (with no `domsed` installed). 
+
+First, add the OIDC provider associated with the EKS cluster into the Target AWS Account as an Identity Provider. Next,
+configure the trust policy of a Target AWS role in a Target AWS Account where you are assuming the Role. 
+
+We shall refer to the following variables 
 - `<TARGET_AWS_ACCOUNT>`
 - `<TARGET_AWS_ROLE>`
 - `<REGION_OF_TARGET_AWS_ACCOUNT>`
+- `<SOURCE_EKS_ACCOUNT_OIDC_ID>`
 
 1. Create a Service Account below in the EKS cluster 
 
@@ -246,17 +249,18 @@ kubectl -n domino-compute exec -it run-test-1 -- sh
 ```shell
 AWS_ACCOUNT=<TARGET_AWS_ACCOUNT>
 AWS_ROLE=<TARGET_AWS_ROLE>
+REGION=<REGION_OF_TARGET_AWS_ACCOUNT>
 
 AWS_ROLE_ARN=arn:aws:iam::${AWS_ACCOUNT}:role/${AWS_ROLE}
 AWS_WEB_IDENTITY_TOKEN_FILE=/var/run/secrets/eks.amazonaws.com/serviceaccount/token
 AWS_STS_REGIONAL_ENDPOINTS=regional
-AWS_DEFAULT_REGION=<REGION_OF_TARGET_AWS_ACCOUNT>
-AWS_REGION=<REGION_OF_TARGET_AWS_ACCOUNT>
+AWS_DEFAULT_REGION=${REGION}
+AWS_REGION=${REGION}
 ```
 If you `cat` the file 
 `/var/run/secrets/eks.amazonaws.com/serviceaccount/token` can copy paste the contents into [www.jwt.io](www.jwt.io) 
-it will point to the service account `jane-doe` in the `domino-compute` namespace and issued by the OIDC provider
-associated with the EKS cluster.
+you will see that it is issued by  the OIDC provider associated with the EKS cluster and it represents the 
+service account `jane-doe` in the `domino-compute` namespace. 
 
 5. Run the following Python code inside the pod
 
