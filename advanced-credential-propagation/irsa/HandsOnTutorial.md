@@ -1,38 +1,28 @@
 ## Pre-requisites
 
-> Check with your Domino CSM before using this capability. It is a departure from how Domino manages
-> pod identities and may not be suitable for your requirements. 
+> Check with your Domino Professional Services before using this capability. This is a different from how Domino manages
+> pod identities by default. 
 
 1. Install [Domsed](https://github.com/dominodatalab/domino-field-solutions-installations/tree/main/domsed#readme). 
 2. For users needing to assume AWS role identities create service account per user in the `domino-compute` namespace. 
    The name of the service account should match the user-name
 
-When we switch to domino_user_name based service account as opposed to run_id based service accounts, there are restrictions on how we define our domino user name. It must now conform to the constraint-
+## The IRSA process with Domino
 
-> A lowercase RFC 1123 subdomain must consist of lower case alphanumeric characters, '-' or '.', and must start and end with an alphanumeric character (e.g. 'Example Domain ', regex used for validation is 'a-z0-9?(\.a-z0-9?)*')
+IAM stands of Identity and Access Management. It is a two step process. The first step is Authentication where
+a process has to establish its identity. The next step is Access Management where the authenticated Principal requests
+access to a resource, an IAM Role in the IRSA process.
 
-For example a user name test_user is allowed by Keycloak/Domino. However a K8s service account cannot be named test_user . It can only be named test-user or test.user
+1. To enable Authentication, apply the [mutation](user-identity-based-irsa.yaml) as follows:
 
-For new customers this is not a problem. Retrofitting it for existing customers may need require us to map invalid characters (invalid for K8s SA) with a - or a .
-
-## Installation
-
-1. Update the [mutation](user-identity-based-irsa.yaml) as follows:
-
-Update the environment variable mutation as appropriate to your environment
-
-```yaml
-  modifyEnv:
-    env:
-    - name: AWS_WEB_IDENTITY_TOKEN_FILE
-      value: /var/run/secrets/eks.amazonaws.com/serviceaccount/token
-    - name: AWS_DEFAULT_REGION
-      value: us-west-2
-    - name: AWS_REGION
-      value: us-west-2
-    - name: AWS_STS_REGIONAL_ENDPOINTS
-      value: regional
+```shell
+kubectl -f domino-platform apply -f user-identity-base-irsa.yaml
 ```
+
+This yaml defines a mutation using the `domsed` which is a Domino aware mutating webhook. It does the following:
+
+a. Update the user to K8s service account mappings (see Pre-requisites)
+
 Next update the user to K8s service account mappings (see Pre-requisites)
 
 ```yaml
@@ -44,9 +34,9 @@ Next update the user to K8s service account mappings (see Pre-requisites)
       domino-jane-doe: jane-doe      
 ```
 
-And lastly it projects a Service Account token volume into the containers of the pod. This 
+b. Projects a Service Account token volume into the containers of the pod. This 
 [feature](https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/#serviceaccount-token-volume-projection) 
-is requires that you are using K8s 1.12 and above.
+requires that you are using K8s 1.12 and above.
 
 ```yaml
   insertVolumes:
@@ -64,15 +54,9 @@ is requires that you are using K8s 1.12 and above.
         name: aws-user-token
 ```
 
-2. Apply the mutations
 
-```shell
-export platform_namespace=domino-platform
-kubectl -n ${platform_namespace} apply -f ./user-identity-based-irsa.yaml
-```
 
-And let us take a pause here before we discuss the updates that will be made on the AWS side. The most important part
-of the above mutation is the service account token volume projection. The JWT will have the file path 
+The above will mount a Service Account token issued by the OIDC provider associated with the EKS cluster in the path 
 `/var/run/secrets/eks.amazonaws.com/serviceaccount/token`. This JWT is unlike the JWT issued by the `KubeAPIServer`. The
 token provided by the `KubeApiServer` does not have any expiry date on it and now that the issuer is not an OIDC provider
 associated with the EKS cluster.
@@ -112,19 +96,43 @@ the `exp` attributes populated.
   "sub": "system:serviceaccount:domino-compute:john-doe"
 }
 ```
-The mutation also sets up the environment variable `AWS_WEB_IDENTITY_TOKEN_FILE` 
-to `/var/run/secrets/eks.amazonaws.com/serviceaccount/token`. Boto3 uses this environment variable to implicitly
-pass the web identity to IAM. And this is how the pod authenticates to IAM as `system:serviceaccount:domino-compute:john-doe`
-in the above example. The precondition is that the OIDC Provider associated with the EKS cluster is added to IAM of the 
-target AWS Account in which the Domino workload wants to assume an IAM role in as an Identity Provider. This is the 
-crux of how the Domino workload authenticates to AWS IAM. Two good blogs that describes this process in detail are-
 
-1. [IAM Roles of K8s Service Accounts Deep Dive](https://mjarosie.github.io/dev/2021/09/15/iam-roles-for-kubernetes-service-accounts-deep-dive.html)
-2. [EKS Pod Identity Webhook Deep Dive] (https://blog.mikesir87.io/2020/09/eks-pod-identity-webhook-deep-dive/)
+c. Lastly the mutation also sets up the following environment variables
+```yaml
+  modifyEnv:
+    env:
+    - name: AWS_WEB_IDENTITY_TOKEN_FILE
+      value: /var/run/secrets/eks.amazonaws.com/serviceaccount/token
+    - name: AWS_DEFAULT_REGION
+      value: us-west-2
+    - name: AWS_REGION
+      value: us-west-2
+    - name: AWS_STS_REGIONAL_ENDPOINTS
+      value: regional
+```
 
-Now that we understand how the Domino workload authenticates itself with AWS IAM, let us move to the access control part 
-of the process where we configure AWS IAM to permit the workload to assume IAM roles.
+Strictly this is not necessary to be applied via the mutation. A user code could create these environment variables. 
+The most crucial environment variable is `AWS_WEB_IDENTITY_TOKEN_FILE` and is used by the Boto3 library to 
+authenticate the identity (of the Service Account of the Pod) with AWS IAM. It does so by passing the OIDC provider
+issued JWT in `/var/run/secrets/eks.amazonaws.com/serviceaccount/token` as the Web Identity. In our example Boto3 
+implicitly authenticates the Domino workload to AWS IAM as `system:serviceaccount:domino-compute:john-doe`. 
 
+This is the  crux of how the Domino workload authenticates to AWS IAM. Two good blogs that describes this process 
+in detail are:
+
+- [IAM Roles of K8s Service Accounts Deep Dive](https://mjarosie.github.io/dev/2021/09/15/iam-roles-for-kubernetes-service-accounts-deep-dive.html)
+- [EKS Pod Identity Webhook Deep Dive] (https://blog.mikesir87.io/2020/09/eks-pod-identity-webhook-deep-dive/)
+
+Now that we understand how the Domino workload authenticates itself with AWS IAM, let us move to the access control part. 
+Which is, how do we configure AWS IAM to permit the workload to assume IAM roles in an AWS Account.
+
+2. In the AWS Account where the Domino workload needs to assume a IAM role, add the OIDC provider associated with the EKS
+   cluster (we will see in the future article that this can be generalized to, an OIDC provider associated wih a K8s cluster)
+   as an [Identity Provider](https://docs.aws.amazon.com/emr/latest/EMR-on-EKS-DevelopmentGuide/setting-up-enable-IAM.html)
+   in AWS IAM service. You should pay attention to the `arn` of the Identity Provider. Note that has the following naming 
+   convention - `arn:aws:iam::<TARGET_AWS_ACCOUNT>:oidc-provider/oidc.eks.<AWS_REGION_TARGET_AWS_ACCOUNT>.amazonaws.com/id/<SOURCE_EKS_OIDC_ID>`
+   Note the `TARGET` and `SOURCE` names in the above naming convention.
+   
 3. Update your AWS trust policy for the role the user wants to assume (Ex. AWS Role `my-irsa-test-role`)
 
 ```json
@@ -134,12 +142,12 @@ of the process where we configure AWS IAM to permit the workload to assume IAM r
         {
             "Effect": "Allow",
             "Principal": {
-                "Federated": "arn:aws:iam::111111111111:oidc-provider/oidc.eks.<AWS_REGION>.amazonaws.com/id/<OIDC_ID>"
+                "Federated": "arn:aws:iam::<TARGET_AWS_ACCOUNT>:oidc-provider/oidc.eks.<AWS_REGION_TARGET_AWS_ACCOUNT>.amazonaws.com/id/<SOURCE_EKS_OIDC_ID>"
             },
             "Action": "sts:AssumeRoleWithWebIdentity",
             "Condition": {
                 "StringLike": {
-                    "oidc.eks.<AWS_REGION>.amazonaws.com/id/<OIDC_ID>:sub": [
+                    "oidc.eks.<AWS_REGION_TARGET_AWS_ACCOUNT>.amazonaws.com/id/<SOURCE_EKS_OIDC_ID>:sub": [
                        "system:serviceaccount:domino-compute:john-doe",
                         "system:serviceaccount:domino-compute:jane-doe"
                     ]
@@ -155,7 +163,7 @@ of the process where we configure AWS IAM to permit the workload to assume IAM r
 ```python
 import os
 ## You can change this to any role you (based on the k8s service account) have permission to assume
-os.environ['AWS_ROLE_ARN']='arn:aws:iam::111111111111:role/my-irsa-test-role'
+os.environ['AWS_ROLE_ARN']='arn:aws:iam::<TARGET_AWS_ACCOUNT>:role/my-irsa-test-role'
 
 ## Now verify you have assumed it successfully
 import boto3.session
@@ -180,10 +188,107 @@ This should produce the output below which indicates that you have successfully 
 
 ```
 
+
+### Bringing it all together
+
+We shall emulate the entire process in a vanilla EKS cluster (with no `domsed` installed). Furthermore, make sure you
+configure the trust policy of a Target AWS role in a Target AWS Account where you are assuming the Role. Also add the 
+OIDC provider associated with the EKS cluster into the Target AWS Account as an Identity Provider. We shall refer to 
+these variables as the 
+- `<TARGET_AWS_ACCOUNT>`
+- `<TARGET_AWS_ROLE>`
+- `<REGION_OF_TARGET_AWS_ACCOUNT>`
+
+1. Create a Service Account below in the EKS cluster 
+
+```shell
+kubectl -n domino-compute create sa jane-doe
+```
+
+2. Create test pod which emulates a Domino workload by running the following pod specification:
+```shell
+kubectl apply -f - <<EOF
+apiVersion: v1
+kind: Pod
+metadata:
+  name: run-test-1
+  namespace: domino-compute  
+spec:
+  volumes:
+  - name: aws-user-token
+    projected:
+      defaultMode: 422
+      sources:
+      - serviceAccountToken:
+          audience: sts.amazonaws.com
+          expirationSeconds: 86400
+          path: token
+  serviceAccountName: jane-doe
+  containers:
+  - name: run
+    image: demisto/boto3py3:1.0.0.81279
+    command: ["sleep", "infinity"]
+    volumeMounts:
+      - mountPath: /var/run/secrets/eks.amazonaws.com/serviceaccount/
+        name: aws-user-token
+    
+EOF
+```
+
+3. Open a shell in the `run` container of this pod
+
+```shell
+kubectl -n domino-compute exec -it run-test-1 -- sh
+```
+
+4. Run the following commands in the shell (values will differ based on the AWS Account, Region and Role being assumed):
+
+```shell
+AWS_ACCOUNT=<TARGET_AWS_ACCOUNT>
+AWS_ROLE=<TARGET_AWS_ROLE>
+
+AWS_ROLE_ARN=arn:aws:iam::${AWS_ACCOUNT}:role/${AWS_ROLE}
+AWS_WEB_IDENTITY_TOKEN_FILE=/var/run/secrets/eks.amazonaws.com/serviceaccount/token
+AWS_STS_REGIONAL_ENDPOINTS=regional
+AWS_DEFAULT_REGION=<REGION_OF_TARGET_AWS_ACCOUNT>
+AWS_REGION=<REGION_OF_TARGET_AWS_ACCOUNT>
+```
+If you `cat` the file 
+`/var/run/secrets/eks.amazonaws.com/serviceaccount/token` can copy paste the contents into [www.jwt.io](www.jwt.io) 
+it will point to the service account `jane-doe` in the `domino-compute` namespace and issued by the OIDC provider
+associated with the EKS cluster.
+
+5. Run the following Python code inside the pod
+
+```python
+import os
+import boto3
+import boto3.session
+session = boto3.session.Session()
+sts_client = session.client('sts')
+sts_client.get_caller_identity()
+```
+
+This should result in the following output
+
+```shell
+{'UserId': 'AROA5YW464O6XT4444V43:botocore-session-1702067469', 'Account': '<TARGET_AWS_ACCOUNT>', 
+ 'Arn': 'arn:aws:sts::<TARGET_AWS_ACCOUNT>:assumed-role/<TARGET_AWS_ROLE>/botocore-session-1702067469', 
+ 'ResponseMetadata': {'RequestId': '4bd490d2-74c7-4605-ae9e-9023d46dd979', 'HTTPStatusCode': 200,
+                      'HTTPHeaders': {'x-amzn-requestid': '4bd490d2-74c7-4605-ae9e-9023d46dd979', 
+                       'content-type': 'text/xml', 'content-length': '478', 'date': 'Fri, 08 Dec 2023 20:31:10 GMT'}, 
+                       'RetryAttempts': 0}}
+```
+
+You have successfully assumed the AWS Role `<TARGET_AWS_ROLE>` in the AWS ACCOUNT `<TARGET_AWS_ACCOUNT>`
+
+
 ## Appendix - Inner workings of AWS IRSA Webhook
 
+This is an optional section which delves into the inner workings of the AWS IRSA Webhook. Understanding it will help
+you understand why we made the various decisions illustrated above 
 
-## A brief tour of how AWS handles the Service Account annotations for roles for IRSA
+### A brief tour of how AWS handles the Service Account annotations for roles for IRSA
 
 To understand how AWS handles IRSA using annotations create a K8s service account in the `domino-compute` namespace 
 exactly as below
@@ -203,12 +308,12 @@ kubectl apply -f - <<EOF
 apiVersion: v1
 kind: Pod
 metadata:
-  name: run-xyz-1
+  name: run-test-1
   namespace: domino-compute  
 spec:
   serviceAccountName:  test-user
   containers:
-  - name: main
+  - name: run
     image: demisto/boto3py3:1.0.0.81279
     command: ["sleep", "infinity"]
 EOF
@@ -217,7 +322,7 @@ EOF
 Now let us shell into this pod
 
 ```shell
-kubectl -n domino-compute exec -it run-xyz-1 -- sh
+kubectl -n domino-compute exec -it run-test-1 -- sh
 ```
 
 Now run the following commands inside the pod shell
