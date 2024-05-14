@@ -244,13 +244,15 @@ EOF
 kubectl -n domino-compute exec -it run-test-1 -- sh
 ```
 
-4. Run the following commands in the shell (values will differ based on the AWS Account, Region and Role being assumed):
+4. Run the following commands in the shell (values will differ based on the AWS Account, Region and Role being assumed).
+   Note, earlier we mentioned these environment variables were configured via the mutation. That was a convinience step.
+   These can be set at runtime by the user. 
 
 ```shell
 AWS_ACCOUNT=<TARGET_AWS_ACCOUNT>
 AWS_ROLE=<TARGET_AWS_ROLE>
 REGION=<REGION_OF_TARGET_AWS_ACCOUNT>
-
+## Earler was set in the mutation where AWS_ROLE_ARN is empty and set by the user at runtime
 AWS_ROLE_ARN=arn:aws:iam::${AWS_ACCOUNT}:role/${AWS_ROLE}
 AWS_WEB_IDENTITY_TOKEN_FILE=/var/run/secrets/eks.amazonaws.com/serviceaccount/token
 AWS_STS_REGIONAL_ENDPOINTS=regional
