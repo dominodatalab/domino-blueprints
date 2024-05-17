@@ -28,8 +28,8 @@ may need to assume identities in the other Cloud Providers.
 Using Web Identities based on an OpenID Connect Provider supports such use-cases. In this article we will start with a 
 basic setup where using IAM Role for Service Accounts (IRSA) we can configure Kubernetes Service Accounts attached to 
 an EKS workload to assume IAM Role(s). This is similar to attaching an IAM Role to an EC2 instance at startup. 
-Note that this mechanism allows EKS workloads to assume roles in any AWS Account and not just the AWS account hosting 
-the EKS cluster.
+This mechanism allows EKS workloads to assume IAM roles across AWS Accounts. You are not limited to assuming an IAM role
+in the AWS Account hosting the EKS cluster.
 
 In the subsequent series of articles we will expand on this to demonstrate how a data plane hosted on both on-premise 
 or any cloud provider can assume an IAM role in an AWS account.
@@ -61,28 +61,30 @@ Services contact for additional information, assistance and support.
 
 ### How does IRSA work with Domino?
  1 . For a Domino Workload (implemented as a K8s Pod) to be able to assume an IAM Role, it must use the 
- `STS:AssumeRoleWithWebIdentity` API which returns temporary security credentials. But first the caller (in this case 
- a pod) needs to be authenticated with a Web Identity Provider that is compatible with the OpenID connect (OIDC) protocol.
+    `STS:AssumeRoleWithWebIdentity` API which returns temporary security credentials. But first the caller (in this case 
+    a pod) needs to be authenticated with a Web Identity Provider that is compatible with the OpenID connect (OIDC) protocol.
 
  2. Starting [1.12](https://kubernetes.io/docs/concepts/storage/projected-volumes/) Kubernetes allows an OIDC provider
     to be associated with it. An EKS Cluster provides a unique OIDC provider bound to the `KubeAPIServer` server. A JWT 
     created by this OIDC provider can be mounted as a projected volume in the Pod. This JWT is associated with the K8s 
-    Service Account associated with the workload. It is distinct from the JWT issued by the `KubeAPIServer`. This JWT 
-    acts as a workload identity credential that can be validated by AWS STS in order to pass IAM role credentials to 
-    that workload.
+    Service Account associated with the workload. 
 
-3. This provider is configured as an IAM identity Provider within an AWS Account the EKS workloads want to assume an 
-   IAM Role. The key point here is that the EKS cluster and the IAM Role being assumed by a workload running on EKS do 
-   not need to be in the same AWS Account. 
+3. Next, the OIDC provider attached to the EKS cluster is configured as an Identity Provider within which the AWS Account 
+   the Domino workloads want to assume an IAM Role. The key point is Domino workloads can assume IAM roles across multiple
+   AWS Accounts and are not limited to doing to in the account hosting the EKS cluster.
 
 4. An AWS Admin will configure the IAM Role Trust Policy to enable a specific K8s Service Account (as identified by the
    JWT above) to assume the Role. AWS STS will validate the Workload Identity and return temporary IAM Role Credentials
    to a workload if an IAM Role Trust Policy allows it.
 
-5. Typically the amazon-eks-pod-identity-webhook will apply mutations based on annotations defined on the Service 
-   Account of the pod. Domino provides its own mutating webhook framework called 
-   [Domsed](https://github.com/dominodatalab/domino-field-solutions-installations/tree/main/domsed) to enable a user 
-   to switch roles which does not rely on Service Account annotations as defined in the original IRSA documentation. 
-   But more importantly this implementation allows workloads in Domino data planes running on-premise or in other 
-   cloud providers like GCP and Azure to assume AWS IAM Roles. We will cover this in subsequent articles.
+5. Domino adaptation of IRSA operates on a shared trust policy. A Domino mutating webhook framework called [Domsed](https://github.com/dominodatalab/domino-field-solutions-installations/tree/main/domsed) 
+   configures a Domino workload definition to enable passing an identity issued by the OIDC Provider to IAM. We will refer to
+   this identity as the Workload Identity. An AWS Administrator on the other hand configures a trust relationship between 
+   an IAM Role and this Workload Identity. This allows a Domino workload to assume one or more roles if those IAM Roles
+   have their Trust Policy configured to permit the workload identity to assume them.
+   
+   We will discover in subsequent articles of this series, how this mechanism is cloud provider neutral and allows workloads in Domino 
+   data planes running on-premise or in other cloud providers like GCP and Azure to assume AWS IAM Roles. 
+   
+   
 ![IRSA Designs](advanced-credential-propagation/irsa/assets/irsa.svg)
