@@ -85,7 +85,7 @@ Services contact for additional information, assistance and support.
    an IAM Role and this Workload Identity. This allows a Domino workload to assume one or more roles if those IAM Roles
    have their Trust Policy configured to permit the workload identity to assume them.
    
-   We will discover in subsequent articles of this series, how this mechanism is cloud provider neutral and allows workloads in Domino 
+   We will discover in subsequent articles of this series how this mechanism is cloud provider neutral and allows workloads in Domino 
    data planes running on-premise or in other cloud providers like GCP and Azure to assume AWS IAM Roles. 
    
    
