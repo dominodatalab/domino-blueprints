@@ -60,9 +60,10 @@ Services contact for additional information, assistance and support.
     complex mappings to be supported
 
 ### How does IRSA work with Domino?
- 1 . For a Domino Workload (implemented as a K8s Pod) to be able to assume an IAM Role, it must use the 
-    `STS:AssumeRoleWithWebIdentity` API which returns temporary security credentials. But first the caller (in this case 
-    a pod) needs to be authenticated with a Web Identity Provider that is compatible with the OpenID connect (OIDC) protocol.
+ 1 . For a Domino Workload (implemented as a K8s Pod) to be able to assume an IAM Role, it must use 
+     the `STS:AssumeRoleWithWebIdentity` API which returns temporary security credentials. But first 
+     the caller (in this case a pod) needs to be authenticated with a Web Identity Provider that is 
+     compatible with the OpenID connect (OIDC) protocol.
 
  2. Starting [1.12](https://kubernetes.io/docs/concepts/storage/projected-volumes/) Kubernetes allows an OIDC provider
     to be associated with it. An EKS Cluster provides a unique OIDC provider bound to the `KubeAPIServer` server. A JWT 
