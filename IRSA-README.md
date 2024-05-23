@@ -6,7 +6,7 @@ IAM Role for Service Accounts ([IRSA](https://docs.aws.amazon.com/eks/latest/use
  - Security 
  - Identity And Access Management (IAM) 
  - Role Based Access Control (RBAC)
- - OpenID Connect (OIDC), Web Identity and Attribute Based Access Control (ABAC) 
+ - Open Authorization (OAuth), Web Identity and Attribute Based Access Control (ABAC) 
 
 ## High Level Overiew
 
