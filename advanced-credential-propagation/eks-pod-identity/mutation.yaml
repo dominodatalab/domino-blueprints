@@ -1,0 +1,17 @@
+apiVersion: apps.dominodatalab.com/v1alpha1
+kind: Mutation
+metadata:
+  name: map-domino-user-k8s-sa
+  namespace: domino-platform
+rules:
+- labelSelectors:
+  - dominodatalab.com/workload-type in (Workspace,Batch,Scheduled)
+  cloudWorkloadIdentity:
+    cloud_type: aws
+    default_sa: ""
+    assume_sa_mapping: false
+    user_mappings:
+      svc-user-1: svc-user-1-sa
+      svc-user-2: svc-user-2-sa
+
+
