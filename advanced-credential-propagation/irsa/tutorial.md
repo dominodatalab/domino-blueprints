@@ -5,15 +5,23 @@
 
 1. Install [Domsed](https://github.com/dominodatalab/domino-field-solutions-installations/tree/main/domsed#readme). 
 2. For users needing to assume AWS role identities create service account per user in the `domino-compute` namespace. 
-   The name of the service account should match the user-name
-
+   
 ## The IRSA process with Domino
 
 IAM stands of Identity and Access Management. It is a two step process. The first step is Authentication where
 a process has to establish its identity. The next step is Access Management where the authenticated Principal requests
 access to a resource, an IAM Role in the IRSA process.
 
-1. To enable Authentication, apply the [mutation](user-identity-based-irsa.yaml) as follows:
+1. We will assume there are two Domino users named `john-doe` and `jane-doe` 
+
+2. We will create two K8s service accounts, one for each user
+
+```shell
+kubectl -n domino-compute create sa sa-john-doe
+kubectl -n domino-compute create sa sa-jane-doe
+```
+
+3. To enable Authentication, apply the [mutation](user-identity-based-irsa.yaml) as follows:
 
 ```shell
 kubectl -f domino-platform apply -f user-identity-base-irsa.yaml
@@ -23,15 +31,13 @@ This yaml defines a mutation using the `domsed` which is a Domino aware mutating
 
 a. Update the user to K8s service account mappings (see Pre-requisites)
 
-Next update the user to K8s service account mappings (see Pre-requisites)
-
 ```yaml
 - cloudWorkloadIdentity:
     cloud_type: aws
     default_sa: ""
     user_mappings:
-      domino-john-doe: john-doe
-      domino-jane-doe: jane-doe      
+      john-doe: sa-john-doe
+      jane-doe: sa-jane-doe      
 ```
 
 b. Projects a Service Account token volume into the containers of the pod. This 
@@ -126,14 +132,14 @@ in detail are:
 Now that we understand how the Domino workload authenticates itself with AWS IAM, let us move to the access control part. 
 Which is, how do we configure AWS IAM to permit the workload to assume IAM roles in an AWS Account.
 
-2. In the AWS Account where the Domino workload needs to assume a IAM role, add the OIDC provider associated with the EKS
+4. In the AWS Account where the Domino workload needs to assume a IAM role, add the OIDC provider associated with the EKS
    cluster (we will see in the future article that this can be generalized to, an OIDC provider associated wih a K8s cluster)
    as an [Identity Provider](https://docs.aws.amazon.com/emr/latest/EMR-on-EKS-DevelopmentGuide/setting-up-enable-IAM.html)
    in AWS IAM service. You should pay attention to the `arn` of the Identity Provider. Note that has the following naming 
    convention - `arn:aws:iam::<TARGET_AWS_ACCOUNT>:oidc-provider/oidc.eks.<AWS_REGION_TARGET_AWS_ACCOUNT>.amazonaws.com/id/<SOURCE_EKS_OIDC_ID>`
    Note the `TARGET` and `SOURCE` names in the above naming convention.
    
-3. Update your AWS trust policy for the role the user wants to assume (Ex. AWS Role `my-irsa-test-role`)
+5. Update the AWS trust policy for the role the user wants to assume (Ex. AWS Role `my-irsa-test-role`)
 
 ```json
 {
@@ -158,7 +164,7 @@ Which is, how do we configure AWS IAM to permit the workload to assume IAM roles
 }
 ```
 
-4. Next as one of the mapped users start a workspace and run the following Python code
+5. Next as one of the mapped users start a workspace and run the following Python code
 
 ```python
 import os
@@ -205,7 +211,7 @@ We shall refer to the following variables
 1. Create a Service Account below in the EKS cluster 
 
 ```shell
-kubectl -n domino-compute create sa jane-doe
+kubectl -n domino-compute create sa sa-jane-doe
 ```
 
 2. Create test pod which emulates a Domino workload by running the following pod specification:
@@ -226,7 +232,7 @@ spec:
           audience: sts.amazonaws.com
           expirationSeconds: 86400
           path: token
-  serviceAccountName: jane-doe
+  serviceAccountName: sa-jane-doe
   containers:
   - name: run
     image: demisto/boto3py3:1.0.0.81279
@@ -302,7 +308,7 @@ exactly as below
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: test-user
+  name: sa-test-user
   annotations:
     eks.amazonaws.com/role-arn: arn:aws:iam::111122223333:role/my-role
 ```
@@ -317,7 +323,7 @@ metadata:
   name: run-test-1
   namespace: domino-compute  
 spec:
-  serviceAccountName:  test-user
+  serviceAccountName:  sa-test-user
   containers:
   - name: run
     image: demisto/boto3py3:1.0.0.81279
@@ -342,9 +348,9 @@ AWS_DEFAULT_REGION=us-west-2
 AWS_REGION=us-west-2
 ```
 
-Note the above output. How did those environment variables appear. Also how did the mount appear. If you `cat` the file 
+Note the above output. How did those environment variables appear?  If you `cat` the file 
 `/var/run/secrets/eks.amazonaws.com/serviceaccount/token` you will notice that it refers to a projected service account
-token. Who injected these environment variables and the mount
+token. How did this file appear? Who injected these environment variables and the file?
 
 This was injected by an AWS webhook called the `pod-identity-webhook`
 
@@ -377,7 +383,7 @@ sts_client.get_caller_identity()
 botocore.errorfactory.InvalidIdentityTokenException: An error occurred (InvalidIdentityToken) when calling the AssumeRoleWithWebIdentity operation: No OpenIDConnect provider found in your account for https://oidc.eks.us-west-2.amazonaws.com/id/C7F107CAE94B194C9AF67A09A84B878B
 ```
 
-You will see that the you cannot assume this role because it does not exist. Now consider this role 
+Notice that you cannot assume this role because it does not exist. Now consider this role 
 `arn:aws:iam::<AWS_ACCOUNT_NO>:role/<AWS_IAM_ROLE>` which actually exists and add a trust policy as follows:
 
 ```json
@@ -407,6 +413,7 @@ You will see that the you cannot assume this role because it does not exist. Now
 In the python shell now run the following
 ```python
 import os
+import boto3
 aws_account='<AWS_ACCOUNT_NO>'
 aws_role='<AWS_IAM_ROLE>'
 os.environ['AWS_ROLE_ARN']=f'arn:aws:iam::{aws_account}:role/{aws_role}'

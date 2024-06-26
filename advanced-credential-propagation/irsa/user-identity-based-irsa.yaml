@@ -11,9 +11,8 @@ rules:
     default_sa: ""
     assume_sa_mapping: false
     user_mappings:
-      test-user: test-user
-      john-doe: john-doe
-      jane-doe: jane-doe
+      john-doe: sa-john-doe
+      jane-doe: sa-jane-doe
   insertVolumes:
   - name: aws-user-token
     projected:
