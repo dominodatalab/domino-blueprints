@@ -28,23 +28,27 @@ In this article we will explore what these operational challenges are and how EK
 Domino Workloads. We will look at specific situations where this approach is more suitable than the IRSA approach.
 
 While this document is meant to guide you on configuring AWS IAM Role propagation to Domino Workloads based on 
-EKS Pod Identity, please speak with your Domino Professional 
-Services contact for additional information, assistance and support.
+EKS Pod Identity, please speak with your Domino Professional Services contact for additional information, assistance 
+and support.
 
 
 ### Operational Challenges of IRSA
 
-In general if you treat the EKS cluster hosting Domino as a "pet" and not "cattle", IRSA is a better choice. It offers
-more flexibility with respect to assigning roles to Domino workloads. It can also be argued that, delegating the mapping
-of Kubernetes Service Accounts to IAM Role via a separate IAM team is a good security practice which allows for more
-safeguards when assigning roles to Kubernetes workloads.
+In most cases, EKS administrators or Domino administrators, do not own the AWS Identity and Access Management. When 
+using IRSA any AWS role which can be assumed by a Domino workloads, the IAM owner has to update the trust policy of 
+the IAM Role to explicity point to the OIDC provider associated with the EKS cluster. This OIDC provider is unique for
+each EKS cluster. This has been considered to be one of the major operational challenges of IRSA. It can also be 
+argued that, delegating the mapping of Kubernetes Service Accounts to IAM Role via a separate IAM team is a good
+security practice which allows for more safeguards when assigning roles to Kubernetes workloads.
 
-However, if you use any variant of Blue/Green deployments, where an upgrade to Domino is a brand new EKS cluster,
-you will find EKS Pod Identities useful.
+If the EKS cluster hosting Domino is built once and all upgrades to Domino happen in the same EKS cluster, IRSA may be
+a better choice. In this case you only have to add the OIDC Provider ARN once to the IAM roles. Each time you need to 
+attach a K8s service account to an IAM role, you need to have an IAM owner to make the update on the behalf of the EKS 
+Administrator. 
 
-In general the EKS administrators or Domino administrators, do not own the AWS Identity and Access Management. For any
-AWS role which can be assumed by a Domino workloads, the IAM owner has to update the trust policy of the IAM Role to
-explicity point to the OIDC provider associated with the EKS cluster. This OIDC provider is unique for each EKS cluster.
+With a fixed EKS cluster do not have to update all the IAM roles assumed via Domino workloads with the new OIDC 
+Provider ARN on each upgrade. If you use any variant of Blue/Green deployments, where an upgrade to Domino is a brand
+new EKS cluster, you will find EKS Pod Identities useful.
 
 Consequently, in a Blue/Green scenario when you start the Green EKS cluster and install Domino on it, you will need
 to modify the trust relationship of each IAM Role assumed by the Domino Workload to include the OIDC provider of the
@@ -65,7 +69,7 @@ In IRSA your trust policy for the IAM Role looks something like this
 {
       "Effect": "Allow",
       "Principal": {
-        "Federated": "$PROVIDER_ARN"
+        "Federated": "arn:aws:iam::111111111111:oidc-provider/oidc.eks.<AWS_REGION>.amazonaws.com/id/<OIDC_ID>"
       },
       "Action": "sts:AssumeRoleWithWebIdentity",
       "Condition": {
@@ -77,10 +81,10 @@ In IRSA your trust policy for the IAM Role looks something like this
   ]
 }
 ```
-In the above the `$PROVIDER_ARN` is the OIDC endpoint associated with the EKS cluster. And the `${ISSUER_HOSTPATH}:sub`
-has to include every K8s Service Account that is permitted to assume this role. Change the EKS cluster and the former 
-changes. If too many users can assume the role, you run the risk of hitting the (extended) limit of 4096 characters 
-for the trust policy.
+In the above the `arn:aws:iam::111111111111:oidc-provider/oidc.eks.<AWS_REGION>.amazonaws.com/id/<OIDC_ID>` is the 
+OIDC endpoint ARN associated with the EKS cluster. And the `${ISSUER_HOSTPATH}:sub` has to include every K8s Service 
+Account that is permitted to assume this role. Change the EKS cluster and the former changes. If too many users can 
+assume the role, you run the risk of hitting the (extended) limit of 4096 characters for the trust policy.
 
 Compare this with the trust policy for an IAM role when using EKS Pod Identity
 
@@ -111,6 +115,7 @@ such that it allows Domino Workloads to assume specific AWS IAM Roles.
 
 Notice how there are no references to the OIDC endpoint or the actual K8s accounts mapped to the role. This mapping 
 happens in the EKS cluster settings itself
+
 ```shell
 aws eks create-pod-identity-association --cluster-name my-cluster --role-arn arn:aws:iam::111122223333:role/my-role --namespace default --service-account my-service-account
 ```
@@ -124,25 +129,13 @@ When you retire the Blue EKS cluster, simply delete the cluster and your mapping
 
 ### Comparison between EKS Pod Identities and IRSA
 
+The table below outlines the key differences between EKS Pod Identities and IRSA.
 
-The main challenge with Pod Identities is, you cannot switch roles inside a workload. These mappings are static and 
-exactly one K8s Service Account to one IAM Role at any given time.  If you  want a workload to assume a new role, 
-you need to create a new pod identity mapping and restart your workload.
-
-IRSA allows you to assume multiple roles inside a workspace. Switching a role is as simple as selecting the appropriate
-profile from your `AWS_CONFIG_FILE` or setting the environment variable `AWS_ROLE_ARN`.
-
-Removing the Pod Identity mappings between the Pod Service Account and AWS Role, does not remove the permissions of a 
-running workload. There is no documented way to do this. One approach to addressing this problem is to have an 
-independent service in your EKS  cluster which performs `ListPodIdentityAssociations` and if any changes occur, 
-terminates the pod with stale configurations.
-
-When using EKS Pod Identities, it is trivial to find the K8s Service Accounts associated with the IAM roles. Simply run
-the `ListPodIdentityAssociations` and you will get your answer. Using this information, you can also determine which 
-current workloads are associated with which IAM roles.
-
-The only way to reliably determine this for IRSA is to iterate over *all IAM Roles* and determine which of these roles has 
-a trust policy which permits the K8s service account to assume the role. 
+| EKS Pod Identity                                                                                                                                                                                                                                                                                                                                          | IRSA                                                                                                                                                                |
+|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Cannot switch roles inside a workload Mappings between K8s Service Account and IAM Role are One to One.  If you  want a workload to assume a new role, you need to create a new Pod Identity Mapping and restart your workload                                                                                                                            | Can switch IAM roles inside a running workspace by selecting the appropriate profile from your `AWS_CONFIG_FILE` or setting the environment variable `AWS_ROLE_ARN` |
+| Removing the Pod Identity mappings between the Pod Service Account and AWS Role, does not remove the permissions of a running workload. <br/> One approach to addressing this problem is to have an independent service in your EKS  cluster which performs `ListPodIdentityAssociations`. The service will terminates the pod with stale configurations. | Updating the IAM Trust Policy to remove K8s Service Account mapping, immediately revokes the permissions of the workload                                            |
+| The command `ListPodIdentityAssociations` for your EKS cluster provides the K8s Service Accounts associated with the IAM roles.                                                                                                                                                                                                                           | Iterate over *all IAM Roles* and determine which of these roles has a trust policy which permits the K8s service account to assume the role                         |
 
 
 ### Example usecase where EKS Pod Identity may be preferred
