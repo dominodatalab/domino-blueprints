@@ -8,5 +8,5 @@ by the underlying Identity Provider that the Domino workload authenticate with. 
 Customer Success Manager or Account Manager for more details.
 
 1. IAM ROLE for SA Mapping ([IRSA](./IRSA-README.md))
-2. AD User Identity Propgation [Azure AD Tokens](./AD-User-Readme.md)
-3. EKS Pod Identity [EKS Pod Identity](./EKS-POD-IDENTITY-README.md)
+2. AD User Identity Propgation ([Azure AD Tokens](./AD-User-Readme.md))
+3. EKS Pod Identity ([EKS Pod Identity](./EKS-POD-IDENTITY-README.md))
