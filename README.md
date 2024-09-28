@@ -7,4 +7,4 @@ Methods described below extend Domino's Capability to seamlessly achieve Credent
 by the underlying Identity Provider that the Domino workload authenticate with. Speak to your Domino 
 Customer Success Manager or Account Manager for more details.
 
-1. [EKS Pod Identity](./EKS-POD-IDENTITY-README.md)
+1. IAM ROLE for SA Mapping ([IRSA](./IRSA-README.md))
