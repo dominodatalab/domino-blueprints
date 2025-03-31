@@ -1,0 +1,13 @@
+apiVersion: apps.dominodatalab.com/v1alpha1
+kind: Mutation
+metadata:
+  name: add-dataset-model
+  namespace: domino-platform
+rules:
+- labelSelectors:
+  - dominodatalab.com/workload-type==ModelAPI
+  - dominodatalab.com/project-id==67b73a3f7c835e480e8cd061  
+  addDatasetToModel:
+    dataset_name: wadkars/LLM-ModelAPI-Quickstart/LLM-ModelAPI-Quickstart
+    snapshot_number: 0
+  
