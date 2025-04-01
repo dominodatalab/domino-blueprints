@@ -100,22 +100,12 @@ metadata:
   name: add-dataset-model
   namespace: domino-platform
 rules:
-  - insertVolumes:
-    - name: domino-shared-store-domino-compute-vol
-      persistentVolumeClaim:
-        claimName: domino-shared-store-domino-compute
-    jqSelector:
-      query: |
-        include "domsed/selectors/common";
-        $__kind__ == "Pod" and
-        (.metadata.labels."dominodatalab.com/workload-type" | isIn(["ModelAPI"])) and
-        (.metadata.labels."dominodatalab.com/project-id" | isIn(["<MODEL_PROJECT_ID>"]))
   - insertVolumeMounts:
       containerSelector:
       - model
       volumeMounts:
       - mountPath: <DATASET_PATH>
-        name: domino-shared-store-domino-compute-vol
+        name: prediction-data-volume
         subPath: filecache/<RESOURCE_ID>
         readOnly: true
     jqSelector:
