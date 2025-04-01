@@ -1,93 +1,134 @@
 # Deploying LLM's to Model API Endpoint
 
-This repo demonstrates how you can deploy a Model API Endpoint to 
+This repo demonstrates how you can deploy LLM's to Model Endpoints in Domino via the Model Registry
 
-### Workspace
+## Pre-requisites
 
-Every workspace has a default dataset attached to it. We will use this dataset to share LLM binaries
+As an admin user create a dataset which will be shared by users for placing the LLM binaries. In my example my
+admin user is `integration-test` and my admin project is `deploy_llm` and my dataset name is `llmstore`
 
-Once the workspace starts do the following:
+Provide users in Domino with Read-Write privileges if they wish to write to this dataset and expect them to mount
+this as a shared dataset into their project.
 
-1. Login to Hugging Face using your access token (First cell)
+## User Project Pre-requisite for this demo
+
+Create a Hugging Face token and create a user environment variable `HF_TOKEN`. We will be demonstrating using the model
+`google/gemma-2b`. Accept the terms and conditions of this model
+
+
+## User workspace
+
+Next start a workspace.
+
+### Download the model
+
+Enter the notebook [001_download.ipynb](001_download.ipynb).
+
+1. First add the libraries
+```shell
+!pip install torch transformers accelerate
+```
+2.  Next Login to Hugging Face
+
 ```python
 #Login to hugging face
-import os
-from huggingface_hub import login
 # Replace 'your_huggingface_token' with your actual token
 token=os.environ["HF_TOKEN"]
 login(token)
 ```
-2. Install the libraries needed
-```shell
-pip install torch transformers accelerate
+
+3. Download and save model to the dataset
+
+```python
+model_name = "google/gemma-2b"
+ds_name = "llmstore"
+save_path = get_download_dataset_folder(ds_name,model_name)
+download_model(model_name,save_path)
 ```
-3. Next head over to the `download.ipynb` and run the notebook
-4. Lastly test it (last few cells at the end of the notebook)
+This will add the model binaries to the folder `/mnt/data/llmstore/google/gemma-2b`
 
-Now your model should be stored in your mounted dataset
+4. Test the downloaded model locally
 
-### Install Domsed and apply Mutation
+```python
+model_name = "google/gemma-2b"
+ds_name = "llmstore"
+model_path = get_download_dataset_folder(ds_name,model_name)
+
+model = AutoModelForCausalLM.from_pretrained(model_path, 
+                                             torch_dtype=torch.float16, 
+                                             device_map="cpu")
+tokenizer = AutoTokenizer.from_pretrained(model_path)
+
+# Create a text-generation pipeline
+text_generator = pipeline("text-generation", model=model, tokenizer=tokenizer)
+
+# Generate text
+prompt = "Once upon a time in a distant land,"
+output = text_generator(prompt, max_length=50, do_sample=True)
+print(output[0]['generated_text'])
+
+```
+
+### (Optionally Finetune and) Register Model
+
+In this example we do not finetune. But you could finetune the model and store the model binaries in a chosen folder. Instea
+we will simply register the model to Domino Model Registry. This functionality is in the [002_register_model.ipynb](002_register_model.ipynb)
+notebook.
+
+Run through this notebook to see how to register the model to Model Registry as well as download from Model Registry
+and test the model.
+
+When the project meets the above pre-requisites, start a workspace in the project. We will assume a Git based project.
+
+### Obtain the resource id for the dataset
+
+We will need this when we creat the mutation. Run the notebook [003_datasets_utils.ipynb](003_datasets_utils.ipynb)
+
+This will return as three attributes which we will need in the next step:
+```json
+{'MODEL_PROJECT_ID': '67ea9c74a9d2124bb43797a5', 'RESOURCE_ID': 'f70fadf6-cb67-44aa-b525-aba22a7e1cab', 'DATASET_PATH': '/mnt/data/llmstore'}
+```
+
+### Install Domsed and apply Mutation to mount the dataset into the Model API
 
 1. Instructions to install Domsed are [here](https://github.com/dominodatalab/domino-field-solutions-installations/tree/main/domsed)
-2. Apply the mutation
+2. Apply the mutation by replacing the placeholders with values from the previous step
 ```yaml
 apiVersion: apps.dominodatalab.com/v1alpha1
 kind: Mutation
 metadata:
-  generation: 1
   name: add-dataset-model
   namespace: domino-platform
 rules:
-- addDatasetToModel:
-    dataset_name: wadkars/LLM-ModelAPI-Quickstart/LLM-ModelAPI-Quickstart
-    snapshot_number: 0
-  labelSelectors:
-  - dominodatalab.com/workload-type==ModelAPI
-  - dominodatalab.com/project-id==67b73a3f7c835e480e8cd061
-  matchBuilds: false
-```
-Make the following changes:
-
-1. Modify to your `{domino-user-name}/{project-name}/{dataset-name}` for the `dataset_name`
-2. Update the `labelSelectors` so that `dominodatalab.com/project-id` refers to your project id.
-
-The mutation ensures that the dataset is mounted on for Model API endpoints that match the selectors. In the above
-case it only applies the Model API endpoints for projects with project id `67b73a3f7c835e480e8cd061`
-
-### Register the Model to Model Registry
-
-1. Run the notebook `register_model.ipynb`
-2. Note the model name (you provide that) and model version (mlflow provides that)
-
->>> Note: Make sure you update the `model_path` in the `load_context` function to your dataset
-
-```python
-import mlflow
-class LLMModel(mlflow.pyfunc.PythonModel):
-        import os
-        from transformers import pipeline, AutoModelForCausalLM, AutoTokenizer
-        import pandas
-        import torch
-        import accelerate
-        def load_context(self, context):    
-            model_path = "/domino/datasets/local/LLM-ModelAPI-Quickstart/google/gemma-2b"
-            device = 'cuda' if torch.cuda.is_available() else 'cpu'
-            #model_path = save_path  # Change this to your local model directory
-            model = AutoModelForCausalLM.from_pretrained(model_path, 
-                                                         torch_dtype=torch.float16, 
-                                                         device_map=device)
-            tokenizer = AutoTokenizer.from_pretrained(model_path)
-            # Create a text-generation pipeline
-            self.text_generator = pipeline("text-generation", model=model, tokenizer=tokenizer)
-    
-        def predict(self, context, model_input, params=None):
-            prompt = model_input["prompt"]            
-            input_string = prompt.iloc[0]
-            output = self.text_generator(input_string, max_length=50, do_sample=True)
-            return {'text_from_llm': output}
+  - insertVolumes:
+    - name: domino-shared-store-domino-compute-vol
+      persistentVolumeClaim:
+        claimName: domino-shared-store-domino-compute
+    jqSelector:
+      query: |
+        include "domsed/selectors/common";
+        $__kind__ == "Pod" and
+        (.metadata.labels."dominodatalab.com/workload-type" | isIn(["ModelAPI"])) and
+        (.metadata.labels."dominodatalab.com/project-id" | isIn(["<MODEL_PROJECT_ID>"]))
+  - insertVolumeMounts:
+      containerSelector:
+      - model
+      volumeMounts:
+      - mountPath: <DATASET_PATH>
+        name: domino-shared-store-domino-compute-vol
+        subPath: filecache/<RESOURCE_ID>
+        readOnly: true
+    jqSelector:
+      query: |
+        include "domsed/selectors/common";
+        $__kind__ == "Pod" and
+        (.metadata.labels."dominodatalab.com/workload-type" | isIn(["ModelAPI"])) and
+        (.metadata.labels."dominodatalab.com/project-id" | isIn(["<MODEL_PROJECT_ID>"]))
 ```
 
-Note that the model paths in the workspace and the Model API endpoint match. It is the same mount
+This creates a mount called `/mnt/data
+
+
 
 ### Deploy the Model API endpoint
 
