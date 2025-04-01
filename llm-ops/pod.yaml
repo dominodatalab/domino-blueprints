@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: busybox-pod
+  labels:
+    dominodatalab.com/workload-type: ModelAPI
+    dominodatalab.com/project-id: 67b73a3f7c835e480e8cd061
+spec:
+  containers:
+  - name: busybox
+    image: busybox
+    command: ["sleep", "3600"]
+    imagePullPolicy: IfNotPresent
+  restartPolicy: Never
