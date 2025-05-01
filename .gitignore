@@ -161,4 +161,4 @@ cython_debug/
 .idea/
 .idea/*
 .idea/misc.xml
-
+.Trash*/*
