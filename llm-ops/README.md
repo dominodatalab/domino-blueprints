@@ -111,7 +111,6 @@ The act of restarting the Domino Model Endpoint for the registered model version
 mounted dataset from `domino-models-dev` to `domino-models-prod`. And we are done.
 
 
-
 ## Takeaways
 
 Using a relatively straight forward design composed of multiple datasets, mlflow nested runs and IRSA
@@ -126,3 +125,9 @@ we have enabled LLM deployments in Domino by addressing the following challenges
 
 In other words, we have enabled LLM Deployments in Domino efficiently without sacrificing on using Domino
 as a System of Record which is the central feature of Domino.
+
+## Appendix
+
+This section covers additional details around how the solution works
+
+### How does the Domino mutation work?
