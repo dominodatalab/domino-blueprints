@@ -4,13 +4,13 @@
         {
             "Effect": "Allow",
             "Principal": {
-                "Federated": "arn:aws:iam::946429944765:oidc-provider/oidc.eks.us-west-2.amazonaws.com/id/E5737030659E35C613302D1F8C278CE9"
+                "Federated": "arn:aws:iam::123456789123:oidc-provider/oidc.eks.us-west-2.amazonaws.com/id/E57XXXXXXXXXXX278CE9"
             },
             "Action": "sts:AssumeRoleWithWebIdentity",
             "Condition": {
                 "StringLike": {
-                    "oidc.eks.us-west-2.amazonaws.com/id/E5737030659E35C613302D1F8C278CE9:aud": "sts.amazonaws.com",
-                    "oidc.eks.us-west-2.amazonaws.com/id/E5737030659E35C613302D1F8C278CE9:sub": "*:domino-compute:jane-admin"
+                    "oidc.eks.us-west-2.amazonaws.com/id/E57XXXXXXXXXXX278CE9:aud": "sts.amazonaws.com",
+                    "oidc.eks.us-west-2.amazonaws.com/id/E57XXXXXXXXXXX278CE9:sub": "*:domino-compute:jane-admin"
                 }
             }
         }
