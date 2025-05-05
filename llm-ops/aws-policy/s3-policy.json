@@ -9,7 +9,7 @@
         "s3:ListBucketMultipartUploads",
         "s3:GetBucketLocation"
       ],
-      "Resource": "arn:aws:s3:::sameer81996-blobs",
+      "Resource": "arn:aws:s3:::example-domino-12345-blobs",
       "Condition": {
         "StringLike": {
           "s3:prefix": "mlflow/*"
@@ -26,7 +26,7 @@
         "s3:DeleteObject",
         "s3:AbortMultipartUpload"
       ],
-      "Resource": "arn:aws:s3:::sameer81996-blobs/mlflow/*"
+      "Resource": "arn:aws:s3:::example-domino-12345-blobs/mlflow/*"
     }
   ]
 }
