@@ -12,16 +12,16 @@ rules:
     containerSelector:
     - model
     volumeMounts:
-    - mountPath: "/llm-models"
+    - mountPath: "/models"
       name: prediction-data-volume
       readOnly: true
-      subPath:  "filecache/e0b94bde-c630-439b-b2b5-651c6569dc9e/llm-models/"
+      subPath:  "filecache/e0b94bde-c630-439b-b2b5-651c6569dc9e/models/"
   jqSelector:
     query: |
       include "domsed/selectors/common";
       $__kind__ == "Pod" and
       (.metadata.labels."dominodatalab.com/workload-type" | isIn(["ModelAPI"])) and
-      $.inArray(metadata.labels["dominodatalab.com/workload-type"], ["jane_admin"]) !== -1
+      $.inArray(metadata.labels["dominodatalab.com/project-owner-username"], ["jane_admin"]) !== -1
 - insertVolumes:
   - name: prediction-data-volume
     persistentVolumeClaim:
@@ -30,16 +30,16 @@ rules:
     containerSelector:
     - model
     volumeMounts:
-    - mountPath: "/llm-models"
+    - mountPath: "/models"
       name: prediction-data-volume
       readOnly: true
-      subPath:  "filecache/e0b94bde-c630-439b-b2b5-651c6569dc9e/llm-models/"
+      subPath:  "filecache/e0b94bde-c630-439b-b2b5-651c6569dc9e/models/"
   jqSelector:
     query: |
       include "domsed/selectors/common";
       $__kind__ == "Pod" and
       (.metadata.labels."dominodatalab.com/workload-type" | isIn(["ModelAPI"])) and
-      (.metadata.labels."dominodatalab.com/workload-type" | isIn(["jane_admin"]))
+      (.metadata.labels."dominodatalab.com/project-owner-username" | isIn(["jane_admin"]))
 - labelSelectors:
   - "dominodatalab.com/workload-engine=cg2"
   cloudWorkloadIdentity:
