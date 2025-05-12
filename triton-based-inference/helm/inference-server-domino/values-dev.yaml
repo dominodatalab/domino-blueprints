@@ -20,4 +20,9 @@ persistence:
   size: 1Ti
   useEFS: true
   efsFSID: <EFS-FS-ID-FOR-DS-STORAGE-CLASS>
+istio:
+  enabled: false
+certmanager:
+  duration: "4320h"
+  renewBefore: "360h"
 
