@@ -1,0 +1,32 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "ListAndLocationAccess",
+      "Effect": "Allow",
+      "Action": [
+        "s3:ListBucket",
+        "s3:ListBucketMultipartUploads",
+        "s3:GetBucketLocation"
+      ],
+      "Resource": "arn:aws:s3:::example-domino-12345-blobs",
+      "Condition": {
+        "StringLike": {
+          "s3:prefix": "mlflow/*"
+        }
+      }
+    },
+    {
+      "Sid": "ObjectLevelAccessMlflowOnly",
+      "Effect": "Allow",
+      "Action": [
+        "s3:PutObject",
+        "s3:ListMultipartUploadParts",
+        "s3:GetObject",
+        "s3:DeleteObject",
+        "s3:AbortMultipartUpload"
+      ],
+      "Resource": "arn:aws:s3:::example-domino-12345-blobs/mlflow/*"
+    }
+  ]
+}

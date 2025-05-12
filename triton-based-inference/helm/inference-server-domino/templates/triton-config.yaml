@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: triton-config
+data:
+  triton-inference-servers.json: |
+    [
+      {
+         "service": "{{ .Values.triton_inference_server_1.name }}",
+         "inference_server_type": "{{ .Values.triton_inference_server_1.type }}",
+         "endpoint": "http://{{ .Values.triton_inference_server_1.name }}-service.{{ .Values.env.namespace }}.svc.cluster.local:8000"
+      },
+      {
+         "service": "{{ .Values.triton_inference_server_2.name }}",
+         "inference_server_type": "{{ .Values.triton_inference_server_2.type }}",
+         "endpoint": "http://{{ .Values.triton_inference_server_2.name }}-service.{{ .Values.env.namespace }}.svc.cluster.local:8000"
+      }
+    ]

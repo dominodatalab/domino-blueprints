@@ -1,0 +1,11 @@
+apiVersion: v1
+name: triton-domino
+version: 0.0.1
+description: Deploying inference server framework
+home: https://github.com/domino-field/inference-server-plugin-framework.git
+keywords:
+  - triton-inference
+  - dominodatalab
+maintainers:
+  - email: sameer.wadkar@dominodatalab.com
+    name: Sameer Wadkar

@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: {{.Values.env.namespace}}-pv
+spec:
+  capacity:
+    storage: {{.Values.persistence.size}}
+  volumeMode: Filesystem
+  accessModes:
+    - {{.Values.persistence.accessMode}}
+  persistentVolumeReclaimPolicy: Delete
+  storageClassName: {{ .Values.persistence.storageClass }}
+  csi:
+    driver: efs.csi.aws.com
+    volumeHandle: {{ .Values.persistence.efsFSID }}

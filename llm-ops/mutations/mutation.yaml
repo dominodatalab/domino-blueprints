@@ -4,48 +4,48 @@ metadata:
   name: llm-volume-mount
   namespace: domino-platform
 rules:
-- insertVolumes:
-  - name: prediction-data-volume
-    persistentVolumeClaim:
-      claimName: domino-shared-store-domino-compute
+- enabled: true
   insertVolumeMounts:
     containerSelector:
     - model
     volumeMounts:
-    - mountPath: "/models"
+    - mountPath: /llm-models
       name: prediction-data-volume
       readOnly: true
-      subPath:  "filecache/e0b94bde-c630-439b-b2b5-651c6569dc9e/models/"
+      subPath: filecache/e0b94bde-c630-439b-b2b5-651c6569dc9e/llm-models/
   jqSelector:
     query: |
       include "domsed/selectors/common";
       $__kind__ == "Pod" and
       (.metadata.labels."dominodatalab.com/workload-type" | isIn(["ModelAPI"])) and
-      $.inArray(metadata.labels["dominodatalab.com/project-owner-username"], ["jane_admin"]) !== -1
-- insertVolumes:
-  - name: prediction-data-volume
-    persistentVolumeClaim:
-      claimName: domino-shared-store-domino-compute
+      (.metadata.labels."dominodatalab.com/workload-type" | isIn(["jane_admin"]) | not)
+  matchBuilds: false
+- enabled: true
   insertVolumeMounts:
     containerSelector:
     - model
     volumeMounts:
-    - mountPath: "/models"
+    - mountPath: /llm-models
       name: prediction-data-volume
       readOnly: true
-      subPath:  "filecache/e0b94bde-c630-439b-b2b5-651c6569dc9e/models/"
+      subPath: filecache/f7923fd7-5935-44a8-bd92-e4193087894e/llm-models/
   jqSelector:
     query: |
       include "domsed/selectors/common";
       $__kind__ == "Pod" and
       (.metadata.labels."dominodatalab.com/workload-type" | isIn(["ModelAPI"])) and
-      (.metadata.labels."dominodatalab.com/project-owner-username" | isIn(["jane_admin"]))
-- labelSelectors:
-  - "dominodatalab.com/workload-engine=cg2"
-  cloudWorkloadIdentity:
-    cloud_type: azure
-    user_mappings:
-      jane-admin: jane-admin
+      (.metadata.labels."dominodatalab.com/workload-type" | isIn(["jane_admin"]))
+  matchBuilds: false
+- cloudWorkloadIdentity:
+    assume_sa_mapping: false
+    cloud_type: aws
     default_sa: ""
-      
+    user_mappings:
+      prod-deployer-user-1: prod-deployer-user-1
+      prod-deployer-user-2: prod-deployer-user-1
+  enabled: true
+  labelSelectors:
+  - dominodatalab.com/workload-engine=cg2
+  matchBuilds: false
+
       

@@ -1,0 +1,39 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{.Values.env.name}}-proxy
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: triton-proxy
+  template:
+    metadata:
+      labels:
+        app: triton-proxy
+        nucleus-client: "true"
+        security.istio.io/tlsMode: "istio"
+    spec:
+      securityContext:
+        fsGroup: 12574
+      containers:
+      - name: proxy
+        securityContext:
+          runAsUser: 1000
+          runAsGroup: 1000
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+              - all
+        image: {{ .Values.proxy.image }}
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8000
+        volumeMounts:
+        - name: config-volume
+          mountPath: /etc/config
+          readOnly: true
+      volumes:
+      - name: config-volume
+        configMap:
+          name: triton-config
