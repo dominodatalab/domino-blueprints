@@ -1,0 +1,23 @@
+env:
+  namespace:  domino-inference-dev
+  name: inference
+proxy:
+  image: quay.io/domino/field/triton-inference-proxy:latest
+  replicas: 1
+triton_inference_server_1:
+  name: "triton-domino-pre-load-inference"
+  image: "nvcr.io/nvidia/tritonserver:23.03-py3"
+  type: "PreloadedTritonInferenceServerProxy"
+  dataset_id: <DEV_DATASET_ID>
+triton_inference_server_2:
+  name: "triton-domino-ondemand-load-inference"
+  image: "nvcr.io/nvidia/tritonserver:23.03-py3"
+  type: "OnDemandTritonInferenceServerProxy"
+  dataset_id: <DEV_DATASET_ID>
+persistence:
+  storageClass: dominoshared # default
+  accessMode: ReadWriteMany # default
+  size: 1Ti
+  useEFS: true
+  efsFSID: <EFS-FS-ID-FOR-DS-STORAGE-CLASS>
+

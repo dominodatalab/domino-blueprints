@@ -1,0 +1,59 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.triton_inference_server_1.name }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ .Values.triton_inference_server_1.name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.triton_inference_server_1.name }}
+        type: triton-inference-server
+        nucleus-client: "true"
+        security.istio.io/tlsMode: "istio"
+    spec:
+      # If you had a GPU-based environment, you'd specify resource limits with nvidia.com/gpu here.
+      containers:
+      - name: triton-domino-server
+        securityContext:
+          runAsUser: 1000
+          runAsGroup: 1000
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+              - all
+        image: {{ .Values.triton_inference_server_1.image }}
+        # Use CPU-only Docker images if you prefer, or just run this with no GPU in minikube.
+        # The 'args' run Triton with the local model repo
+        args: [ 
+          "tritonserver", 
+          "--model-repository=/models",
+          "--model-control-mode=poll",
+          "--repository-poll-secs=30",
+          "--log-verbose=1"
+          # no GPU flags needed because we won't have GPU in minikube
+        ]
+        resources:
+          requests:
+            cpu: "1"
+            memory: "4Gi"
+        # Expose Triton's ports
+        ports:
+        - containerPort: 8000  # HTTP
+          name: http
+        - containerPort: 8001  # gRPC
+          name: grpc
+        - containerPort: 8002  # Metrics
+          name: metrics
+        volumeMounts:
+        - mountPath: "/models"
+          name: {{.Values.env.name}}-models-vol
+          subPath: filecache/{{ .Values.triton_inference_server_1.dataset_id }}/models/pre-load
+      volumes:
+      - name: {{.Values.env.name}}-models-vol
+        persistentVolumeClaim:
+          claimName: {{.Values.env.name}}-models
+

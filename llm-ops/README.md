@@ -64,13 +64,13 @@ Login as a `data-scientist` role and start a workspace
 
 #### FineTuning The Model
 
-We provide a [notebook](./local_download.ipynb) to locally download a GPT2 model to `/home/ubuntu//gpt2` folder.
+We provide a [notebook](notebooks/local_download.ipynb) to locally download a GPT2 model to `/home/ubuntu//gpt2` folder.
 In the real world scenario, you will probably fine tune a model and mount it to one of our datasets so that you have more storage. For this demo
 we are assuming this downloaded `GPT2` model is adequate. This notebook also shows you how to test this model locally.
 
 #### Dev Testing and Deployment of Domino Model Endpoint
 
-Next follow the steps in the [notebook](./register_and_test_model.ipynb). This has the following steps:
+Next follow the steps in the [notebook](notebooks/register_and_test_model.ipynb). This has the following steps:
 1. Register Model to Domino Model Registry and test model locally
 2. Deploy and test this version Domino Model Endpoint
 3. Next register model binaries as a model artifacts to Domino Experiment Manager and re-register new version to Model Registry
@@ -93,7 +93,7 @@ MLFLOW_ENABLE_PROXY_MULTIPART_UPLOAD=true
 
 ### Production Phase
 
-Next login as the `prod-deployer`. And follow along the [notebook](./deploy_llm_to_prod.ipynb) to deploy this endpoint to prod.
+Next login as the `prod-deployer`. And follow along the [notebook](notebooks/deploy_llm_to_prod.ipynb) to deploy this endpoint to prod.
 
 The main challenge here is we want to download artifacts from the Domino Experiment Manager for the `Registerd Model Version` we 
 intend to deploy. For LLM these artifacts can be very large in size (order of GB). To speed up the process we use the 
@@ -131,3 +131,123 @@ as a System of Record which is the central feature of Domino.
 This section covers additional details around how the solution works
 
 ### How does the Domino mutation work?
+
+The [mutation](./mutations/mutation.yaml) has three domsed mutations encapsulated into it
+
+1. For model endpoints started by the user in "Data Scientist" role, mount the dev dataset
+```yaml
+- enabled: true
+  insertVolumeMounts:
+    containerSelector:
+    - model
+    volumeMounts:
+    - mountPath: /llm-models
+      name: prediction-data-volume
+      readOnly: true
+      subPath: filecache/e0b94bde-c630-439b-b2b5-651c6569dc9e/llm-models/
+  jqSelector:
+    query: |
+      include "domsed/selectors/common";
+      $__kind__ == "Pod" and
+      (.metadata.labels."dominodatalab.com/workload-type" | isIn(["ModelAPI"])) and
+      (.metadata.labels."dominodatalab.com/workload-type" | isIn(["jane_admin"]) | not)
+```
+The key parts of this mutation are:
+a. The volume mount added to the `model` container in the Domino model endpoint
+```yaml
+  insertVolumeMounts:
+    containerSelector:
+    - model
+    volumeMounts:
+    - mountPath: /llm-models
+      name: prediction-data-volume
+      readOnly: true
+      subPath: filecache/e0b94bde-c630-439b-b2b5-651c6569dc9e/llm-models/
+```
+You can find the  filecache/{dataset-id} using the following lines of code in your Domino workspace
+```python
+import os
+import requests
+get_datasets_url = f"{DOMINO_API_PROXY}/v4/datasetrw/datasets-v2"
+results = requests.get(get_datasets_url).json()
+print(results)
+#Look for the relevant dataset id
+
+datasetId="<ADD_RELEVANT_DATASET_ID>"
+#Now find the snapshot id
+get_snapshot_id_url = f"{DOMINO_API_PROXY}/v4/datasetrw/datasets/{datasetId}"
+results = requests.get(get_snapshot_id_url).json()
+
+#Now find the snapshot id from the above results
+readWriteSnapshotId = "<SNAPSHOT_ID>"
+# Now find the fileshare path
+get_fileshare_path = f"{DOMINO_API_PROXY}/v4/datasetrw/snapshot/{readWriteSnapshotId}"
+fileshare_path = requests.get(get_fileshare_path).json()['snapshot']['resourceId']
+print(fileshare_path)
+```
+
+b. The mutation targets the model api endpoints NOT started by the user in the `prod-deployer` role.
+We have decided that the user `jane-admin` is in prod-deployer role
+```yaml
+  jqSelector:
+    query: |
+      include "domsed/selectors/common";
+      $__kind__ == "Pod" and
+      (.metadata.labels."dominodatalab.com/workload-type" | isIn(["ModelAPI"])) and
+      (.metadata.labels."dominodatalab.com/workload-type" | isIn(["jane_admin"]) | not)
+
+```
+
+
+2.For model endpoints started by the user in "Prod Deployer" role, mount the prod dataset
+
+```yaml
+- enabled: true
+  insertVolumeMounts:
+    containerSelector:
+    - model
+    volumeMounts:
+    - mountPath: /llm-models
+      name: prediction-data-volume
+      readOnly: true
+      subPath: filecache/f7923fd7-5935-44a8-bd92-e4193087894e/llm-models/
+  jqSelector:
+    query: |
+      include "domsed/selectors/common";
+      $__kind__ == "Pod" and
+      (.metadata.labels."dominodatalab.com/workload-type" | isIn(["ModelAPI"])) and
+      (.metadata.labels."dominodatalab.com/workload-type" | isIn(["jane_admin"]))
+  matchBuilds: false
+```
+
+3. Lastly we add a mutation to apply an AWS Role for the prod-deployer role so that this
+   prod-deployer can directly read the Domino blobs S3 bucket. The assumption here is
+   that a k8s service account with name `jane-admin` exists in the `domino-compute` namespace.
+   Create a service account for users in this role in your deployment and change the mutation accordingly
+```yaml
+- cloudWorkloadIdentity:
+    assume_sa_mapping: false
+    cloud_type: aws
+    default_sa: ""
+    user_mappings:
+      jane-admin: jane-admin
+  enabled: true
+  labelSelectors:
+  - dominodatalab.com/workload-engine=cg2
+  matchBuilds: false
+```
+
+4. For the k8s service account for user in the prod-deployer role add an annotation as follows
+```yaml
+kind: ServiceAccount
+metadata:
+  annotations:
+    eks.amazonaws.com/role-arn: arn:aws:iam::123456789012:role/mlflow-s3-access-role
+  creationTimestamp: "2025-04-29T16:39:58Z"
+  name: jane-admin
+  namespace: domino-compute
+```
+
+The annotation `eks.amazonaws.com/role-arn` does not need to point to a valid AWS account or a IAM 
+role in it. It is merely a hint to the AWS irsa mutating webhook to apply the appropriate mounts
+to enable the user identifying token to the mounted. You can copy the annotation above as is.

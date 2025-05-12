@@ -1,0 +1,21 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.triton_inference_server_2.name }}-service
+spec:
+  selector:
+    app: {{ .Values.triton_inference_server_2.name }}
+  ports:
+    - name: http
+      protocol: TCP
+      port: 8000
+      targetPort: 8000
+    - name: grpc
+      protocol: TCP
+      port: 8001
+      targetPort: 8001
+    - name: metrics
+      protocol: TCP
+      port: 8002
+      targetPort: 8002
+

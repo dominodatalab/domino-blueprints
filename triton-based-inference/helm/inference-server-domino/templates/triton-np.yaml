@@ -1,0 +1,22 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-triton-access
+spec:
+  podSelector:
+    matchLabels:
+      type: triton-inference-server
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: triton-proxy
+      ports:
+        - protocol: TCP
+          port: 8000
+        - protocol: TCP
+          port: 8001
+        - protocol: TCP
+          port: 8002
+  policyTypes:
+    - Ingress

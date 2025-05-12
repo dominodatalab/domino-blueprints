@@ -1,0 +1,19 @@
+apiVersion: apps.dominodatalab.com/v1alpha1
+kind: Mutation
+metadata:
+  name: triton-inference-prod-flow
+  namespace: domino-platform
+rules:
+- cloudWorkloadIdentity:
+    assume_sa_mapping: false
+    cloud_type: aws
+    default_sa: ""
+    user_mappings:
+      prod-deployer-user-1: prod-deployer-user-1
+      prod-deployer-user-2: prod-deployer-user-1
+  enabled: true
+  labelSelectors:
+  - dominodatalab.com/workload-engine=cg2
+  matchBuilds: false
+
+      
