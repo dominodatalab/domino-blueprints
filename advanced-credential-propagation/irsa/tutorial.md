@@ -24,7 +24,7 @@ kubectl -n domino-compute create sa sa-jane-doe
 3. To enable Authentication, apply the [mutation](user-identity-based-irsa.yaml) as follows:
 
 ```shell
-kubectl -f domino-platform apply -f user-identity-base-irsa.yaml
+kubectl -f domino-platform apply -f user-identity-based-irsa.yaml
 ```
 
 This yaml defines a mutation using the `domsed` which is a Domino aware mutating webhook. It does the following:
