@@ -16,8 +16,34 @@ spec:
     spec:
       securityContext:
         fsGroup: 12574
+      nodeSelector:
+        dominodatalab.com/node-pool: platform
       containers:
       - name: proxy
+        resources:
+          limits:
+            cpu: 1500m
+            memory: 4000Mi
+          requests:
+            cpu: 1500m
+            memory: 2000Mi
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 8443
+            scheme: HTTPS
+          initialDelaySeconds: 10
+          failureThreshold: 2
+          timeoutSeconds: 5
+          periodSeconds: 20
+        readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 8443
+              scheme: HTTPS
+            initialDelaySeconds: 10
+            failureThreshold: 2
+            timeoutSeconds: 5
         securityContext:
           runAsUser: 1000
           runAsGroup: 1000
@@ -33,7 +59,18 @@ spec:
         - name: config-volume
           mountPath: /etc/config
           readOnly: true
+        - name: certs
+          mountPath: /ssl
+          readOnly: true
+        - name: logs
+          mountPath: /var/log/inference
       volumes:
       - name: config-volume
         configMap:
-          name: triton-config
+          name: "{{.Values.env.name}}-config"
+      - name: certs
+        secret:
+          secretName: "{{.Values.env.name}}-certs"
+      - name: logs
+        emptyDir:
+          sizeLimit: 1000Mi

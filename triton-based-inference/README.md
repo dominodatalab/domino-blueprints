@@ -26,7 +26,7 @@ Inference engines help strike the right balance between **performance and operat
 **pluggable components** ensures the platform can accommodate advanced inference scenarios while remaining aligned with
 Domino’s broader Inference and Model Ecosystem.
 
-![Architecture Overview](../assets/DominoInferenceEngine-HighLevel.png)
+![Architecture Overview](./assets/DominoInferenceEngine-HighLevel.png)
 
 The design follows a typical pattern-
 
