@@ -6,9 +6,9 @@
 
 See our [previous guide](https://github.com/dominodatalab/domino-blueprints/tree/main/advanced-credential-propagation/azure-ad-user-tokens)
 
-### Azure Workload Identity
+### Azure Workload Identity (WI)
 
-The Azure configuration of this feature is outside the scope of this guide, but you can follow, [[Azure Documentation](https://learn.microsoft.com/en-us/azure/aks/workload-identity-deploy-cluster#update-an-existing-aks-cluster)] to enable this on an existing cluster. 
+The Azure configuration of this feature is outside the scope of this guide, but you can follow the [Azure Documentation](https://learn.microsoft.com/en-us/azure/aks/workload-identity-deploy-cluster#update-an-existing-aks-cluster) to enable this on an existing cluster. 
 
 The end goal should be to have a set of kubernetes service accounts, in the `domino-compute` namespace, which are linked to your target Managed Identities in Azure
 
