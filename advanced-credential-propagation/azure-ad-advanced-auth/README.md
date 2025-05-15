@@ -38,7 +38,7 @@ rules:
   cloudWorkloadIdentity:
     cloud_type: azure # Sets the proper annotations for azure WI on the pod
     user_mappings:
-      sa_1: aad-id1 # assign domino account "sa_1" the kubernetes service account "aad-id1"
+      sa_1: aad-id1 # assign domino user "sa_1" the kubernetes service account "aad-id1"
     default_sa: "" # If unmatched, assign nothing
 ```
 
@@ -46,7 +46,7 @@ The `domino_aad` package (https://mirrors.domino.tech/domino_aad-0.0.4-py3-none-
 
 This class can be used to write code that can utlize multiple credential types based on the context, allowing users to have a single code base that works under development and production scenarios.
 
-Another option is to use azure's default [chained credentials](https://learn.microsoft.com/en-us/azure/developer/python/sdk/authentication/credential-chains?tabs=dac#chainedtokencredential-overview) method like so:
+Another option is to use azure's  [chained credentials](https://learn.microsoft.com/en-us/azure/developer/python/sdk/authentication/credential-chains?tabs=dac#chainedtokencredential-overview) method like so:
 ```
 credential = ChainedTokenCredential(
     DominoCredential(),
@@ -71,7 +71,7 @@ rules:
   - "dominodatalab.com/workload-type==App" # Targets apps only
   cloudWorkloadIdentity:
     cloud_type: azure # Sets the proper annotations for azure WI on the pod
-    default_sa: "aad-id2" # Sets kubernetes service account "aad-id2"
+    default_sa: "aad-id2" # Sets kubernetes service account "aad-id2" for all apps
 ```
 
 
