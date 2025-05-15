@@ -122,6 +122,8 @@ helm upgrade inference-server-domino-prod helm/inference-server-domino  -n ${nam
 ```
 #### Post Helm Install
 
+This step requires Domsed to be installed. You will find the installation instructions at the following [link](https://github.com/dominodatalab/domino-field-solutions-installations/tree/main/domsed)
+
 Once the installation is complete apply the [mutation](mutations/mutation.yaml) in the folder. The mutation will apply an AWS Role 
 for the prod-deployer role so that this  prod-deployer can directly read the Domino blobs S3 bucket. The assumption here is  that a k8s 
 service account with name `jane-admin` exists in the `domino-compute` namespace.
