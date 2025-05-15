@@ -1,4 +1,5 @@
 env:
+  compute_namespace: domino-compute
   namespace:  domino-inference-prod
   name: inference
 proxy:
@@ -8,20 +9,21 @@ triton_inference_server_1:
   name: "triton-domino-pre-load-inference"
   image: "nvcr.io/nvidia/tritonserver:23.03-py3"
   type: "PreloadedTritonInferenceServerProxy"
-  dataset_id: <DEV_DATASET_ID>
+  dataset_id: 0255a6d5-3753-4e98-96e8-e25bb1b8597c
 triton_inference_server_2:
   name: "triton-domino-ondemand-load-inference"
   image: "nvcr.io/nvidia/tritonserver:23.03-py3"
   type: "OnDemandTritonInferenceServerProxy"
-  dataset_id: <DEV_DATASET_ID>
-persistence:
-  storageClass: dominoshared # default
-  accessMode: ReadWriteMany # default
-  size: 1Ti
-  useEFS: true
-  efsFSID: <EFS-FS-ID-FOR-DS-STORAGE-CLASS>
+  dataset_id: 0255a6d5-3753-4e98-96e8-e25bb1b8597c
 istio:
   enabled: false
 certmanager:
   duration: "4320h"
   renewBefore: "360h"
+persistence:
+  storageClass: dominoshared # default
+  accessMode: ReadWriteMany # default
+  size: 1Ti
+  useEFS: true
+  efsFSID: fs-0f89cac7432a3da53::fsap-xxxx
+

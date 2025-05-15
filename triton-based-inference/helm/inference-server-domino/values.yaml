@@ -1,4 +1,5 @@
 env:
+  compute_namespace: domino-compute
   namespace:  domino-inference-dev
   name: inference
 proxy:
@@ -24,5 +25,5 @@ persistence:
   accessMode: ReadWriteMany # default
   size: 1Ti
   useEFS: true
-  efsFSID: fs-0f89cac7432a3da53::fsap-xxxxxxxxxxxxxx
+  efsFSID: fs-0f89cac7432a3da53::fsap-xxxxxxx
 
