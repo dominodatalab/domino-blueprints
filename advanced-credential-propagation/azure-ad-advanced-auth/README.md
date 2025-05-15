@@ -22,8 +22,7 @@ We need this service installed and running in the platform namespace before proc
 
 ## Scenario 1: Users are not allowed access to production data/resources during development
 
-IMG PLACEHOLDER HERE
-
+![](./assets/Adv%20Azure%20Entra%20-%20Sc1.png)
 In this scenario, we want to make sure a particular service account "sa_1" is assigned a managed identity when it creates a scheduled job. The following yaml can be deployed to configure this:
 
 ```yaml
@@ -56,7 +55,7 @@ credential = ChainedTokenCredential(
 
 ## Scenario 2: You want to deploy your application with strong security not linked to an individual
 
-IMG PLACEHOLDER HERE
+![](./assets/Adv%20Azure%20Entra%20-%20Sc2.png)
 
 In this scenario, we want to force all deployed Applications in Domino to use a particular managed identity from Azure
 
@@ -77,7 +76,7 @@ rules:
 
 ## Scenario 3: Allow wide scope permissions for development and narrow scope for deployment
 
-IMG PLACEHOLDER HERE
+![](./assets/Adv%20Azure%20Entra%20-%20Sc3.png)
 
 In this scenario, we want to mix and match multiple identities to be used for different use cases
 
