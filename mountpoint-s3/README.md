@@ -23,6 +23,8 @@ FUSE is popular among Life Science customers, and many Domino users would like t
 
 The [AWS mountpoint for Amazon S3 CSI driver](https://github.com/awslabs/mountpoint-s3-csi-driver/tree/main) accomplishes the user requirements while addressing the security concerns.
 
+![Overview](images/image1.png)
+
 The AWS mountpoint for the Amazon S3 CSI driver will configure the fuse file system at the compute node level. Domino EDV can be used to provide controlled access from the workspaces to the underlying FUSE file system.
 
 ## Pre Requisites
@@ -69,14 +71,19 @@ eksctl create iamserviceaccount \
     --name s3-csi-driver-sa \
     --namespace domino-platform \
     --cluster wgamage73590 \
-    --attach-policy-arn arn:aws:iam::946429944765:policy/MountpointS3Policy \
+    --attach-policy-arn arn:aws:iam::<AWS account ID>:policy/MountpointS3Policy \
     --approve \
     --role-name MountpointS3Policy \
     --region US-WEST-2 \
     --role-only
 ```
 
+Example:
+![Create EKS role](images/image2.png)
+
 **Note:** Note down the role ARN.
+
+![EKS role ARN](images/image3.png)
 
 ### EKS cluster configuration
 
@@ -88,10 +95,12 @@ helm repo update
 
 helm upgrade --install aws-mountpoint-s3-csi-driver \
    --namespace domino-platform \
-   --set node.serviceAccount.annotations."eks\.amazonaws\.com/role-arn"="arn:aws:iam::946429944765:role/MountpointS3Policy" \
+   --set node.serviceAccount.annotations."eks\.amazonaws\.com/role-arn"="arn:aws:iam::<AWS account ID>:role/MountpointS3Policy" \
    aws-mountpoint-s3-csi-driver/aws-mountpoint-s3-csi-driver
 ```
 
+Example:
+![Create EKS role](images/image4.png)
 Deploy the PV and PVC:
 
 ```yaml
@@ -148,18 +157,30 @@ kubectl apply -f examples/kubernetes/static_provisioning/static_provisioning_dom
 
 ### Domino EDV configuration
 
-The above PV should appear as a generic EDV in the EDV section of the admin panel. Configure the EDV per the documentation: https://docs.dominodatalab.com/en/5.8/user_guide/f12554/external-data-volumes--edvs-/
+The above PV should appear as a generic EDV in the EDV section of the admin panel. Configure the EDV per the documentation: https://docs.dominodatalab.com/en/latest/user_guide/f12554/external-data-volumes-edvs/
+
+![Domino EDV](images/image5.png)
 
 ## Validation
 
 1. Create a workspace with the EDV mounted
 2. Browse the EDV and access the S3 bucket
+
+![Browse the EDV](images/image6.png)
+
 3. Observe the file system mounts
+
+![File system mount](images/image7.png)
+
 4. Run throughput tests (optional)
+
+![Throughput Test](images/image8.png)
 
 ## Troubleshooting
 
 ### Confirm the S3 CSI node daemonset pods are running
+
+![Check daemonsets](images/image9.png)
 
 Check the status of the daemonset pods in your cluster.
 
@@ -167,6 +188,7 @@ Check the status of the daemonset pods in your cluster.
 
 Verify that the file system is properly mounted on the compute nodes.
 
+![Compute node mounts](images/image10.png)
 ## Limitations
 
 For detailed limitations, refer to the AWS documentation: https://docs.aws.amazon.com/AmazonS3/latest/userguide/mountpoint.html
