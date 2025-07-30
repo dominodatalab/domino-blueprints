@@ -1,0 +1,28 @@
+name: "my_model"
+platform: "tensorrt_plan"  # or "onnxruntime_onnx" or "pytorch_libtorch" etc.
+
+max_batch_size: 32
+
+input [
+  {
+    name: "input_ids"
+    data_type: TYPE_INT32
+    dims: [ -1 ]  # adjust based on your model
+  }
+]
+
+output [
+  {
+    name: "logits"
+    data_type: TYPE_FP32
+    dims: [ -1 ]  # adjust based on your model
+  }
+]
+
+instance_group [
+  {
+    kind: KIND_GPU
+    count: 2
+    gpus: [ 0, 1 ]
+  }
+]
