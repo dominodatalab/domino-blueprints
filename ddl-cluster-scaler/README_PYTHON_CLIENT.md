@@ -137,6 +137,12 @@ Polls every 2s until `is_scaling_complete()` is `True`.
 (No explicit timeout—add one in your caller if needed.)
 
 ---
+### `update_hw_tier_of_head_node(cluster_kind: str = "rayclusters",head_hw_tier_name= "Small") -> dict | str`
+Updates head node hardware tier (effectively a restart if the hw tier is different from the existing one).
+Sends `PATCH /ddl_cluster_scaler/head-hw-tier/<kind>/<name>`  
+Returns the server response (JSON preferred, text fallback).
+
+---
 
 ### `restart_head_node(cluster_kind: str = "rayclusters") -> dict | str`
 Initiates a head restart (deletes head pod) with a timestamp.  
