@@ -4,7 +4,8 @@ Cluster Scaler Client (requests)
 Endpoints expected (server-side):
   - GET    /healthz
   - GET    /ddl_cluster_scaler/cluster/<kind>/<name>
-  - PATCH  /ddl_cluster_scaler/scale/<kind>/<name>               (json: {"replicas": int, "worker_hw_tier_id": "..."} optional)
+  - PATCH  /ddl_cluster_scaler/scale/<kind>/<name>               (json: {"replicas": int, "head_hw_tier":str: ",
+                                                                                "worker_hw_tier":str} )
   - PATCH  /ddl_cluster_scaler/restart-head/<kind>/<name>        (query: started_at=ISO8601)
   - GET    /ddl_cluster_scaler/restart_head_status/<kind>/<name>    (query: started_at=ISO8601)
 
@@ -145,7 +146,7 @@ def get_cluster_status(cluster_kind: str = "rayclusters"):
     return resp.json()
 
 
-def scale_cluster(cluster_kind: str = "rayclusters", worker_hw_tier_name="Small", replicas: int = 1):
+def scale_cluster(cluster_kind: str = "rayclusters", head_hw_tier_name:str="Small", worker_hw_tier_name:str="Small", replicas: int = 1):
     """
     Scale a cluster's workers to `replicas`. Keeps the old interface:
       - `worker_hw_tier_name` is optional and passed through.
@@ -170,8 +171,11 @@ def scale_cluster(cluster_kind: str = "rayclusters", worker_hw_tier_name="Small"
     body: Dict[str, Any] = {"replicas": int(replicas)}
     if worker_hw_tier_name:
         # Backward/forward compatibility: send both keys
-        body["worker_hw_tier"] = worker_hw_tier_name       # legacy (by name)
-        body["worker_hw_tier_id"] = worker_hw_tier_name    # new (by id) — pass same value unless you have the id
+        body["worker_hw_tier_name"] = worker_hw_tier_name
+    if head_hw_tier_name:
+        # Backward/forward compatibility: send both keys
+        body["head_hw_tier_name"] = head_hw_tier_name
+
 
     resp = requests.patch(
         url,
@@ -208,7 +212,6 @@ def is_scaling_complete(cluster_kind: str = "rayclusters") -> bool:
         actual_workers = max(0, len(nodes) - 1) if nodes else 0
         is_complete = (actual_workers == effective_replicas)
 
-        print(f"Actual worker nodes {actual_workers}")
         print(f"Expected worker nodes {effective_replicas}")
         # Safe slice: show worker names if present
         try:
@@ -235,35 +238,7 @@ def wait_until_scaling_complete(cluster_kind: str = "rayclusters") -> bool:
     return is_complete
 
 
-def update_hw_tier_of_head_node(cluster_kind: str = "rayclusters", head_hw_tier_name="Small"):
-    """
-    Updates the hw tier of the head node
-      - `head_hw_tier_name`
-    Returns parsed JSON from the scaler.
 
-    """
-    run_id = os.environ.get("DOMINO_RUN_ID")
-    if not run_id:
-        raise RuntimeError("DOMINO_RUN_ID is not set")
-
-
-    cluster_id_prefix = cluster_kind.replace("clusters", "")
-    cluster_id = f"{cluster_id_prefix}-{run_id}"
-
-    url = f"{BASE_URL}{SERVICE_PREFIX}/head-hw-tier/{cluster_kind}/{cluster_id}"
-
-    body: Dict[str, Any] = {"head_hw_tier_name": head_hw_tier_name}
-    resp = requests.patch(
-        url,
-        headers=get_auth_headers(),
-        json=body,
-        timeout=(3.05, 15),
-    )
-    stamp = datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
-    print(f"Status code {resp.status_code}")
-    resp.raise_for_status()
-
-    return stamp
 
 
 def restart_head_node(cluster_kind: str = "rayclusters"):
