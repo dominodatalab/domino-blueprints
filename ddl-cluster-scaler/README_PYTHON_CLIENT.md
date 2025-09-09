@@ -56,6 +56,8 @@ The client assumes these routes exist on your scaler:
 ## Quick Start
 
 ```python
+
+
 from client.client.ddl_cluster_scaling_client import (
   is_cluster_auto_scaler_healthy,
   get_cluster_status,
@@ -119,9 +121,9 @@ Calls `GET /ddl_cluster_scaler/cluster/<kind>/<name>` and returns parsed JSON.
 
 ---
 
-### `scale_cluster(cluster_kind: str = "rayclusters", worker_hw_tier_name="Small", replicas: int = 1) -> Any`
+### `scale_cluster(cluster_kind: str = "rayclusters", head_hw_tier_name="Small",worker_hw_tier_name="Small", replicas: int = 1) -> Any`
 Scales worker replicas to `replicas` (server caps at max).  
-Sends both `worker_hw_tier` and `worker_hw_tier_id` for compatibility.  
+Sends both `worker_hw_tier_name` and `head_hw_tier_name`.  
 Returns the server response (JSON preferred, text fallback).
 
 ---
@@ -135,12 +137,6 @@ Returns `True` when `actual_workers == minReplicas`, assuming Ray-style status s
 ### `wait_until_scaling_complete(cluster_kind: str = "rayclusters") -> bool`
 Polls every 2s until `is_scaling_complete()` is `True`.  
 (No explicit timeout—add one in your caller if needed.)
-
----
-### `update_hw_tier_of_head_node(cluster_kind: str = "rayclusters",head_hw_tier_name= "Small") -> dict | str`
-Updates head node hardware tier (effectively a restart if the hw tier is different from the existing one).
-Sends `PATCH /ddl_cluster_scaler/head-hw-tier/<kind>/<name>`  
-Returns the server response (JSON preferred, text fallback).
 
 ---
 
@@ -210,9 +206,7 @@ print(pretty(client.get_cluster_status("rayclusters")))
   Change that logic in `cluster_name_from_run_id` if your naming differs.
 - The client assumes Ray-style `.status.nodes` ordering (head first). If your CRD differs, adjust `is_scaling_complete`.
 - All requests use short connect/read timeouts by default; tune as needed.
-- The head node follows the pattern `ray-<RUN>-head-0` for rayclusters
-- - The head node follows the pattern `spark-<RUN>-master-0` for sparkclusters
 
 ---
 
-That’s it. Drop this client into your run, set the env vars (if overriding or else the defaults work), and go.
+That’s it. Drop this client into your run, set the env vars, and go.

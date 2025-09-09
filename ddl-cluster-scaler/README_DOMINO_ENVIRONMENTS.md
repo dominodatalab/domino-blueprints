@@ -75,3 +75,61 @@ rstudio:
     port: 8888
     requireSubdomain: false
 ```
+
+## Dask Cluster Environment
+
+**Base Image** : `quay.io/domino/dask-cluster-environment:dask2024.12.1-py3.10-domino6.1`
+
+**Dockerfile** :
+
+```Dockerfile
+```
+
+## Dask Compute Environment
+
+
+**Base Image** : `quay.io/domino/domino-dask-environment:ubuntu22-py3.10-r4.5-dask2024.12.1-domino6.1`
+
+**Dockerfile** :
+
+```Dockerfile
+
+```
+
+**Pluggable Workspace Tools** :
+
+```yaml
+jupyter:
+  title: "Jupyter (Python, R, Julia)"
+  iconUrl: "/assets/images/workspace-logos/Jupyter.svg"
+  start: [ "/opt/domino/workspaces/jupyter/start" ]
+  supportedFileExtensions: [ ".ipynb" ]
+  httpProxy:
+    port: 8888
+    rewrite: false
+    internalPath: "/{{ownerUsername}}/{{projectName}}/{{sessionPathComponent}}/{{runId}}/{{#if pathToOpen}}tree/{{pathToOpen}}{{/if}}"
+    requireSubdomain: false
+jupyterlab:
+  title: "JupyterLab"
+  iconUrl: "/assets/images/workspace-logos/jupyterlab.svg"
+  start: [  "/opt/domino/workspaces/jupyterlab/start" ]
+  httpProxy:
+    internalPath: "/{{ownerUsername}}/{{projectName}}/{{sessionPathComponent}}/{{runId}}/{{#if pathToOpen}}tree/{{pathToOpen}}{{/if}}"
+    port: 8888
+    rewrite: false
+    requireSubdomain: false
+vscode:
+  title: "vscode"
+  iconUrl: "/assets/images/workspace-logos/vscode.svg"
+  start: [ "/opt/domino/workspaces/vscode/start" ]
+  httpProxy:
+    port: 8888
+    requireSubdomain: false
+rstudio:
+  title: "RStudio"
+  iconUrl: "/assets/images/workspace-logos/Rstudio.svg"
+  start: [ "/opt/domino/workspaces/rstudio/start" ]
+  httpProxy:
+    port: 8888
+    requireSubdomain: false
+```
