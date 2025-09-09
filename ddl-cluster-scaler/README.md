@@ -19,9 +19,21 @@ capabilities for **Ray**, **Dask**, and **Spark** cluster CRDs on Kubernetes.
   - When scaling, an optional hardware tier **name** can be provided. The service fetches tier
     details from Domino (`v4/hardwareTier`), validates restrictions, and applies CPU/memory/GPU
     requests/limits and labels/node selectors to the worker spec.
+- **Logging**
+  - Configured via `LOG_LEVEL` (default `INFO`). Structured messages at INFO/WARN/ERROR are emitted.
 
 ---
 
+## Environment Variables
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `LOG_LEVEL` | `INFO` | Log level for the service (e.g., `DEBUG`, `INFO`, `WARNING`) |
+| `COMPUTE_NAMESPACE` | `domino-compute` | Kubernetes namespace for the CRDs and head pod |
+| `DOMINO_NUCLEUS_URI` | `https://…` | Base URL for Domino Nucleus (used for `v4/auth/principal` & HW tiers) |
+| `FLASK_ENV` | *(unset)* | If `development`, enables debug behaviors (not required here) |
+
+---
 
 ## Resource Types (Kinds)
 
@@ -92,7 +104,8 @@ Content-Type: application/json
 ```json
 {
   "replicas": 3,
-  "worker_hw_tier_name": "Medium"   // optional: hardware tier by NAME
+  "worker_hw_tier_name": "Medium",   // optional: hardware tier by NAME
+  "head_hw_tier_name": "Medium"    // optional: hardware tier by NAME
 }
 ```
 
@@ -103,6 +116,15 @@ Content-Type: application/json
   - Fetches Domino HW tier (by **name**) from `v4/hardwareTier`.
   - Validates `computeClusterRestrictions` (e.g., `restrictToRay/Spark/Dask/Mpi`).
   - Applies to `spec.worker`:
+    - `labels.dominodatalab.com/hardware-tier-id = <tier.id>`
+    - `nodeSelector.dominodatalab.com/node-pool = <tier.nodePool>`
+    - CPU requests/limits from `hwtResources.cores`/`coresLimit` (as strings)
+    - Memory requests/limits from `hwtResources.memory{value,unit}` (unit truncated to 2 chars, e.g., `Gi`)
+    - GPU requests/limits from `gpuConfiguration.numberOfGpus` (if defined)
+- If `head_hw_tier_name` is present:
+  - Fetches Domino HW tier (by **name**) from `v4/hardwareTier`.
+  - Validates `computeClusterRestrictions` (e.g., `restrictToRay/Spark/Dask/Mpi`).
+  - Applies to `spec.[head|scheduler|master]` depending on kind:
     - `labels.dominodatalab.com/hardware-tier-id = <tier.id>`
     - `nodeSelector.dominodatalab.com/node-pool = <tier.nodePool>`
     - CPU requests/limits from `hwtResources.cores`/`coresLimit` (as strings)
@@ -132,69 +154,8 @@ Content-Type: application/json
 
 ---
 
-### 4) Update Head Hardware Tier
 
-```
-PATCH /ddl_cluster_scaler/head-hw-tier/<kind>/<name>
-Content-Type: application/json
-```
-
-**Kinds**
-- `rayclusters`
-- `daskclusters`
-- `sparkclusters`
-
-**Body**
-```json
-{
-  "head_hw_tier_name": "Medium"   
-}
-```
-
-**Behavior**
-- Validates `kind` is one of `rayclusters|daskclusters|sparkclusters`.
-- AuthZ: caller must be **Domino admin** or the **cluster owner** (compared via label `dominodatalab.com/starting-user-id`). Caller identity is obtained from Domino Nucleus (`v4/auth/principal`) using forwarded auth headers (`Authorization` or `X-Domino-Api-Key`).
-- Looks up the Domino Hardware Tier **by name** via `v4/hardwareTier`.
-- Validates any `computeClusterRestrictions` on the tier:
-  - `restrictToRay`, `restrictToSpark`, `restrictToDask`, `restrictToMpi`
-  - If any flag is `true`, the requested `kind` must match one of the allowed kinds.
-- Applies the tier to the **head** pod spec (key varies by kind):
-  - `rayclusters`  → `spec.head`
-  - `daskclusters` → `spec.scheduler`
-  - `sparkclusters`→ `spec.master`
-- Patch sets (when available in the tier):
-  - `labels.dominodatalab.com/hardware-tier-id = <tier.id>`
-  - `nodeSelector.dominodatalab.com/node-pool = <tier.nodePool>`
-  - CPU: `resources.requests.cpu = hwtResources.cores`, `resources.limits.cpu = hwtResources.coresLimit`
-  - Memory: `resources.requests.memory = <value><unit[:2]>`, `resources.limits.memory = <value><unit[:2]>` (e.g., `GiB` → `Gi`)
-  - GPUs: `resources.requests["nvidia.com/gpu"] = gpuConfiguration.numberOfGpus` (also set in `limits`)
-- **Does not** change worker replicas or autoscaling settings; only updates head node labels/resources.
-- Returns the patched CR object from Kubernetes.
-
-
-
-## Response (200)
-```json
-{
-  "kind": "rayclusters",
-  "name": "ray-12345",
-  "head_hw_tier_name": "Medium",
-  "object": { /* patched CR (truncated) */ }
-}
-```
-
-## Errors
-- `400 invalid_kind` — kind not one of the allowed values
-- `400 bad_request` — missing or invalid `head_hw_tier_name`
-- `400 invalid_hw_tier` — tier not found or restricted for this kind
-- `403 unauthorized` — caller is not the owner/admin
-- `409 not_supported` — CRD does not expose a head/scheduler/master spec
-- `500 update_head_hw_tier_failed` — unexpected error while patching
-
-
----
-
-### 5) Restart the head pod (fire-and-forget)
+### 4) Restart the head pod (fire-and-forget)
 
 ```
 PATCH /ddl_cluster_scaler/restart_head/<kind>/<name>
@@ -224,7 +185,7 @@ PATCH /ddl_cluster_scaler/restart_head/<kind>/<name>
 
 ---
 
-### 6) Head restart status
+### 5) Head restart status
 
 ```
 GET /ddl_cluster_scaler/restart_head_status/<kind>/<name>?started_at=<ISO-8601>
