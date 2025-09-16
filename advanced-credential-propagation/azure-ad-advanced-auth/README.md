@@ -57,7 +57,7 @@ credential = ChainedTokenCredential(
 
 ![](./assets/Adv%20Azure%20Entra%20-%20Sc2.png)
 
-In this scenario, we want to force all deployed Applications in Domino to use a particular managed identity from Azure
+In this scenario, we want to force all deployed applications in Domino to use a particular managed identity from Azure
 
 ```yaml
 apiVersion: apps.dominodatalab.com/v1alpha1
