@@ -46,7 +46,7 @@ The client assumes these routes exist on your scaler:
 - `PATCH  /ddl_cluster_scaler/scale/<kind>/<name>`  
   JSON body: `{"replicas": <int>, "worker_hw_tier_id": "<id>"}` (tier optional; name also accepted via `worker_hw_tier`)
 - `PATCH  /ddl_cluster_scaler/restart_head/<kind>/<name>?started_at=<ISO-8601>`
-- `GET    /ddl_cluster_scaler/restart_head_status/<kind>/<name>?started_at=<ISO-8601>`
+- `GET    /ddl_cluster_scaler/restart_status/<kind>/<name>/<node_type>?started_at=<ISO-8601>` (node_type is `head` or `worker`)
 
 > The **status** route above assumes your server can resolve `<kind>/<name>` to the correct head pod internally.  
 > If your server uses a different path (e.g., by namespace/pod), adjust the client or add a server alias.
@@ -62,10 +62,11 @@ from client.client.ddl_cluster_scaling_client import (
   is_cluster_auto_scaler_healthy,
   get_cluster_status,
   scale_cluster,
+  get_cluster_restart_status,
+  is_restart_complete,
   wait_until_scaling_complete,
   restart_head_node,
-  restart_head_node_status,
-  wait_until_node_restarted,
+  wait_until_head_restart_complete
 )
 from datetime import datetime, timezone
 
@@ -77,22 +78,17 @@ print("health:", code, body)
 print(get_cluster_status("rayclusters"))
 
 # 3) scale to 2 workers (optionally pass a HW tier id/name)
-print(scale_cluster("rayclusters", worker_hw_tier_name="Medium", replicas=2))
+j = scale_cluster("rayclusters", worker_hw_tier_name="Medium", replicas=2)
 
 # 4) wait until scaled
-wait_until_scaling_complete("rayclusters")
+wait_until_scaling_complete("rayclusters",scale_start_ts=j['restarted_ts'])
 
 # 5) restart the head (returns JSON with the server’s view; often includes started_at)
-kick = restart_head_node("rayclusters")
+j = restart_head_node(cluster_kind="rayclusters",head_hw_tier_name="Small")
 
-# If the server doesn’t echo started_at, use the same one you sent (the client generates one)
-started_at = kick.get("started_at")  # ISO-8601 string, e.g. "2025-09-02T15:40:00Z"
+# 6) or poll until restarted and ready
+wait_until_head_restart_complete("rayclusters", restart_ts=j['started_at'])
 
-# 6) check status once
-print(restart_head_node_status("rayclusters", restarted_since=started_at))
-
-# 7) or poll until restarted and ready
-wait_until_node_restarted("rayclusters", restarted_since=started_at)
 ```
 
 ---
@@ -121,9 +117,9 @@ Calls `GET /ddl_cluster_scaler/cluster/<kind>/<name>` and returns parsed JSON.
 
 ---
 
-### `scale_cluster(cluster_kind: str = "rayclusters", head_hw_tier_name="Small",worker_hw_tier_name="Small", replicas: int = 1) -> Any`
+### `scale_cluster(cluster_kind: str = "rayclusters", worker_hw_tier_name="Small", replicas: int = 1) -> Any`
 Scales worker replicas to `replicas` (server caps at max).  
-Sends both `worker_hw_tier_name` and `head_hw_tier_name`.  
+Sends  `worker_hw_tier_name`.  
 Returns the server response (JSON preferred, text fallback).
 
 ---
@@ -133,28 +129,31 @@ Returns `True` when `actual_workers == minReplicas`, assuming Ray-style status s
 - `.status.nodes = [head, worker1, worker2, ...]`
 
 ---
+## `get_cluster_restart_status(cluster_kind: str = "rayclusters",node_type:str ="worker",restart_ts:str="")`
 
-### `wait_until_scaling_complete(cluster_kind: str = "rayclusters") -> bool`
+Returns json status of the restart operation.
+
+---
+## `is_restart_complete(cluster_kind: str = "rayclusters",node_type:str="worker",restart_ts:str="") -> bool`
+
+Returns True if the restart operation is complete.
+
+---
+
+### `wait_until_scaling_complete(cluster_kind: str = "rayclusters",scale_start_ts:str="") -> bool`
 Polls every 2s until `is_scaling_complete()` is `True`.  
 (No explicit timeout—add one in your caller if needed.)
 
 ---
 
-### `restart_head_node(cluster_kind: str = "rayclusters") -> dict | str`
+### `restart_head_node(cluster_kind: str = "rayclusters",head_hw_tier_name:str="Small") -> dict | str`
 Initiates a head restart (deletes head pod) with a timestamp.  
 Sends `PATCH /ddl_cluster_scaler/restart_head/<kind>/<name>?started_at=<ISO-8601>`  
 Returns the server JSON (or text) and typically echoes `started_at`.
 
 ---
 
-### `restart_head_node_status(cluster_kind: str = "rayclusters", restarted_since: str = "2099-12-31T00:00:00Z") -> dict | str`
-Checks whether the **head** was **restarted on/after** `restarted_since` **and is Ready now**.  
-Calls `GET /ddl_cluster_scaler/restart_head_status/<kind>/<name>?started_at=<ISO-8601>`  
-Returns JSON with keys like `ok`, `restarted`, `ready`, `status`.
-
----
-
-### `wait_until_node_restarted(cluster_kind: str = "rayclusters", restarted_since: str = "2099-12-31T00:00:00Z") -> None`
+### `wait_until_head_restart_complete(cluster_kind: str = "rayclusters",restart_ts:str="") -> bool`
 Polls the status every 3 seconds until `status == "restarted_and_ready"`.  
 (No explicit timeout—wrap in your own deadline if you need one.)
 

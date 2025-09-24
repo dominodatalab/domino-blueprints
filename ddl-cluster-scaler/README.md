@@ -104,8 +104,7 @@ Content-Type: application/json
 ```json
 {
   "replicas": 3,
-  "worker_hw_tier_name": "Medium",   // optional: hardware tier by NAME
-  "head_hw_tier_name": "Medium"    // optional: hardware tier by NAME
+  "worker_hw_tier_name": "Medium"   // optional: hardware tier by NAME
 }
 ```
 
@@ -121,15 +120,7 @@ Content-Type: application/json
     - CPU requests/limits from `hwtResources.cores`/`coresLimit` (as strings)
     - Memory requests/limits from `hwtResources.memory{value,unit}` (unit truncated to 2 chars, e.g., `Gi`)
     - GPU requests/limits from `gpuConfiguration.numberOfGpus` (if defined)
-- If `head_hw_tier_name` is present:
-  - Fetches Domino HW tier (by **name**) from `v4/hardwareTier`.
-  - Validates `computeClusterRestrictions` (e.g., `restrictToRay/Spark/Dask/Mpi`).
-  - Applies to `spec.[head|scheduler|master]` depending on kind:
-    - `labels.dominodatalab.com/hardware-tier-id = <tier.id>`
-    - `nodeSelector.dominodatalab.com/node-pool = <tier.nodePool>`
-    - CPU requests/limits from `hwtResources.cores`/`coresLimit` (as strings)
-    - Memory requests/limits from `hwtResources.memory{value,unit}` (unit truncated to 2 chars, e.g., `Gi`)
-    - GPU requests/limits from `gpuConfiguration.numberOfGpus` (if defined)
+
 
 **Response (200)**
 ```json
@@ -163,9 +154,15 @@ PATCH /ddl_cluster_scaler/restart_head/<kind>/<name>
 
 **Behavior**
 - Deletes the head pod with a 20s grace period. Does **not** wait for the replacement to be ready.
-- The head pod name is computed as:
-  - `get_head_pod_name(<name>)` → `f"{name}-{cluster_type}-head-0"` where `cluster_type = name.split("-")[0]`  
-    e.g., `ray-12345` → `ray-12345-ray-head-0`
+
+**Body**
+```json
+{
+  "replicas": 3,
+  "head_hw_tier_name": "Medium"   // optional: hardware tier by NAME
+}
+```
+
 
 **Response (202)**
 ```json
@@ -185,31 +182,34 @@ PATCH /ddl_cluster_scaler/restart_head/<kind>/<name>
 
 ---
 
-### 5) Head restart status
+### 5) restart status
 
 ```
-GET /ddl_cluster_scaler/restart_head_status/<kind>/<name>?started_at=<ISO-8601>
+GET /ddl_cluster_scaler/restart_status/<kind>/<name>/<node_type>?started_at=<ISO-8601>
 ```
 
 **Query Params**
 - `started_at` (required): ISO-8601 UTC timestamp used as the reference for “since when”.
 
 **Behavior**
-- Reads the head pod (derived as above) and compares its `metadata.creationTimestamp` against `started_at`.
-- **require_ready is assumed true**: `ok` is true only if the pod was **restarted** and is **Ready** now.
+- Depending on the node-type (`head` or `worker`), waits until all replicas restarted
 
 **Response (200)**
 ```json
 {
-  "ok": true,
-  "restarted": true,
-  "ready": true,
-  "status": "restarted_and_ready",
-  "namespace": "domino-compute",
-  "pod": "ray-12345-ray-head-0",
-  "creationTimestamp": "2025-09-02T15:40:05Z",
-  "started_at": "2025-09-02T15:40:00Z",
-  "evaluated_with": "started_at"
+    "desired_replicas": 1,
+    "evaluated_with": "statefulset_pods",
+    "namespace": "domino-compute",
+    "node_type": "<node-type",
+    "ok": true,
+    "oldestCreationTimestamp": "2025-09-24T14:10:03+00:00",
+    "ready_equals_running": true,
+    "ready_pods": 1,
+    "restarted": true,
+    "running_pods": 1,
+    "started_at": "2025-09-24T14:09:56+00:00",
+    "statefulset": "ray-68d3e28f58a29b2e16b6a44f-ray-head",
+    "status": "restarted_and_ready_counts_ok"
 }
 ```
 
@@ -255,94 +255,3 @@ rules:
   verbs: ["get","list","watch","delete"]
 ```
 
----
-
-## Examples
-
-### cURL
-
-List clusters
-```bash
-curl -H "Authorization: Bearer $TOKEN" \
-  "$BASE/ddl_cluster_scaler/list/rayclusters"
-```
-
-Scale (replicas capped to max, optional HW tier name)
-```bash
-curl -X PATCH -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
-  -d '{"replicas": 3, "worker_hw_tier_name": "Medium"}' \
-  "$BASE/ddl_cluster_scaler/scale/rayclusters/ray-12345"
-```
-
-Restart head and check status
-```bash
-# Kick restart
-curl -X PATCH -H "Authorization: Bearer $TOKEN" \
-  "$BASE/ddl_cluster_scaler/restart_head/rayclusters/ray-12345"
-
-# Use the returned started_at value for the status check
-curl -H "Authorization: Bearer $TOKEN" \
-  "$BASE/ddl_cluster_scaler/restart_head_status/rayclusters/ray-12345?started_at=2025-09-02T15:40:00Z"
-```
-
-### Python (requests)
-
-```python
-import requests, json
-BASE = "https://your-host"
-HEADERS = {"Authorization": f"Bearer {TOKEN}", "Accept": "application/json"}
-
-# Scale
-resp = requests.patch(
-    f"{BASE}/ddl_cluster_scaler/scale/rayclusters/ray-12345",
-    headers=HEADERS,
-    json={"replicas": 2, "worker_hw_tier_name": "Medium"},
-    timeout=(3.05, 15),
-)
-print(resp.status_code, resp.json())
-
-# Restart head
-r = requests.patch(
-    f"{BASE}/ddl_cluster_scaler/restart_head/rayclusters/ray-12345",
-    headers=HEADERS,
-    timeout=(3.05, 15),
-)
-data = r.json(); stamp = data["started_at"]
-
-# Check
-s = requests.get(
-    f"{BASE}/ddl_cluster_scaler/restart_head_status/rayclusters/ray-12345",
-    headers=HEADERS, params={"started_at": stamp}, timeout=(3.05, 15)
-)
-print(json.dumps(s.json(), indent=2))
-```
-
----
-
-## Notes & Assumptions
-
-- **Head pod name** defaults to `f"{name}-{name.split('-')[0]}-head-0"`; adjust `get_head_pod_name()` 
-- **Scaling** only updates `minReplicas` and (if present) `worker.replicas`; it **never** increases `maxReplicas`.
-- HW tier memory units are normalized to the first **two** characters of the unit (`GiB` → `Gi`).
-- If `spec.worker` is absent, HW tier resource patches are skipped.
-- The service uses a pooled `requests.Session` with retries for Domino API calls.
-
----
-
-## Development & Logging
-
-- Set `LOG_LEVEL=DEBUG` for verbose traces.
-- Kubernetes config is loaded **in-cluster**; if unavailable, it falls back to local `kubeconfig`.
-
----
-
-## Health
-
-A `/healthz` route is typically provided by the hosting Flask app. This blueprint does not define it.
-
-## Python Client
-
-Follow this [documentation](./README_PYTHON_CLIENT.md) for how to use a python client to interact with the DDL Cluster Scaler service
-
-The [notebook](./notebooks/ddl_cluster_scaler_client_example.ipynb) provides an example of how to use the python client from your
-Domino notebook inside the workspace
