@@ -138,7 +138,7 @@ def get_cluster_status(cluster_kind: str = "rayclusters"):
     return resp.json()
 
 
-def scale_cluster(cluster_kind: str = "rayclusters", worker_hw_tier_name:str="Small", replicas: int = 1):
+def scale_cluster(cluster_kind: str = "rayclusters", worker_hw_tier_name:str=None, replicas: int = 1):
     """
     Scale a cluster's workers to `replicas`. Keeps the old interface:
       - `worker_hw_tier_name` is optional and passed through.
@@ -225,7 +225,7 @@ def wait_until_scaling_complete(cluster_kind: str = "rayclusters") -> bool:
     return is_complete
 
 
-def restart_head_node(cluster_kind: str = "rayclusters",head_hw_tier_name:str="Small"):
+def restart_head_node(cluster_kind: str = "rayclusters",head_hw_tier_name:str=None):
     """
     Initiate a head restart by deleting the head pod.
     Server expects a started_at timestamp in the query; we generate one here.
