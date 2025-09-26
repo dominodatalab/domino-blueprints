@@ -14,26 +14,13 @@ capabilities for **Ray**, **Dask**, and **Spark** cluster CRDs on Kubernetes.
     `dominodatalab.com/starting-user-id` matches the caller’s canonical ID.
 - **Kubernetes integration**
   - Reads/writes CRDs via `CustomObjectsApi` (group `distributed-compute.dominodatalab.com`, version `v1alpha1`).
-  - Deletes/reads Pods via `CoreV1Api` for head restarts + status checks.
-- **Hardware Tier (optional)**
+  - **Hardware Tier (optional)**
   - When scaling, an optional hardware tier **name** can be provided. The service fetches tier
     details from Domino (`v4/hardwareTier`), validates restrictions, and applies CPU/memory/GPU
-    requests/limits and labels/node selectors to the worker spec.
-- **Logging**
-  - Configured via `LOG_LEVEL` (default `INFO`). Structured messages at INFO/WARN/ERROR are emitted.
+    requests/limits and labels/node selectors to the worker/head spec.
 
 ---
 
-## Environment Variables
-
-| Variable | Default | Purpose |
-|---|---|---|
-| `LOG_LEVEL` | `INFO` | Log level for the service (e.g., `DEBUG`, `INFO`, `WARNING`) |
-| `COMPUTE_NAMESPACE` | `domino-compute` | Kubernetes namespace for the CRDs and head pod |
-| `DOMINO_NUCLEUS_URI` | `https://…` | Base URL for Domino Nucleus (used for `v4/auth/principal` & HW tiers) |
-| `FLASK_ENV` | *(unset)* | If `development`, enables debug behaviors (not required here) |
-
----
 
 ## Resource Types (Kinds)
 
@@ -58,7 +45,22 @@ Follow the instructions in [README_INSTALL_AND_TEST.md](./README_INSTALL_AND_TES
 GET /ddl_cluster_scaler/list/<kind>
 ```
 
-**Query**: none
+** Path params **
+
+- `kind` — one of: `rayclusters`, `daskclusters`, `sparkclusters`
+
+** Auth **
+
+Provide one of:
+
+- `Authorization: Bearer <token>`
+
+- `X-Domino-Api-Key: <key>`
+
+> The endpoint returns only clusters you’re allowed to see: Domino admins see all; otherwise you’ll only see clusters 
+> where your canonicalId matches the cluster’s metadata.labels["dominodatalab.com/starting-user-id"]. 
+> If you don’t send valid auth, the list will  be empty.
+
 
 **Response (200)**
 ```json
@@ -68,10 +70,21 @@ GET /ddl_cluster_scaler/list/<kind>
   "clusters": [ { ...k8s object... }, { ... } ]
 }
 ```
+- `count` equals `clusters.length`
+
+- `clusters` are the raw Kubernetes custom objects for the requested kind
 
 **Errors**
-- `400 invalid_kind`
-- `500 list_failed`
+- `400 invalid_kind` — kind must be one of the allowed values
+- `500 list_failed` — unexpected server or Kubernetes error
+
+**Example**
+
+```bash
+curl -s \
+  -H "Authorization: Bearer $TOKEN" \
+  https://<host>/ddl_cluster_scaler/list/rayclusters
+```
 
 ---
 
@@ -110,7 +123,7 @@ Content-Type: application/json
 
 **Behavior**
 - `replicas` is **capped** to `spec.autoscaling.maxReplicas`. `maxReplicas` is **not** increased.
-- Updates `spec.autoscaling.minReplicas` to the effective value and (if present) `spec.worker.replicas`.
+- Updates `spec.autoscaling.minReplicas` to the effective value and (if present) `spec.worker.replicas`
 - If `worker_hw_tier_name` is present:
   - Fetches Domino HW tier (by **name**) from `v4/hardwareTier`.
   - Validates `computeClusterRestrictions` (e.g., `restrictToRay/Spark/Dask/Mpi`).
@@ -121,6 +134,11 @@ Content-Type: application/json
     - Memory requests/limits from `hwtResources.memory{value,unit}` (unit truncated to 2 chars, e.g., `Gi`)
     - GPU requests/limits from `gpuConfiguration.numberOfGpus` (if defined)
 
+> Updates `spec.autoscaling.minReplicas` to the effective value and (if present) `spec.worker.replicas`. This needs
+> some explanation: Currentl the HPA (cluster autoscaler) bases its scaling decisions on CPU utilization. If it drops
+> below 75% it will scale down to `minReplicas`. If your cluster tasks are not CPU-intensive, the HPA will scale down
+> even though the tasks are still running. By setting `minReplicas` to the desired number of workers, we ensure this
+> does not happen. 
 
 **Response (200)**
 ```json
@@ -158,7 +176,6 @@ PATCH /ddl_cluster_scaler/restart_head/<kind>/<name>
 **Body**
 ```json
 {
-  "replicas": 3,
   "head_hw_tier_name": "Medium"   // optional: hardware tier by NAME
 }
 ```
@@ -230,28 +247,20 @@ GET /ddl_cluster_scaler/restart_status/<kind>/<name>/<node_type>?started_at=<ISO
   - Allowed if **admin**, else the caller’s `canonicalId` must equal the CR label
     `dominodatalab.com/starting-user-id`.
 
----
+## Limitations and Future Work
 
-## Kubernetes RBAC Requirements
+The workspace UI will not reflect changes made via this API. The information shown in the UI comes from MongoDB and is 
+not updated by the autoscaler. 
 
-The ServiceAccount used by this service must be able to:
+Audit events do not currently capture actions taken via this API. We could add audit events for scale and restart 
+actions in the future to MongoDB.
 
-- **Custom Objects (CRDs)**
-  - `get`, `list`, `patch` on resources: `rayclusters`, `daskclusters`, `sparkclusters`
-  - apiGroup: `distributed-compute.dominodatalab.com`
+The above were deliberate choices to avoid backward compatibility issues with future Domino releases. In the field,
+we avoid updating MongoDB records because MongoDB is owned by the Product and Engineering teams. We could make a 
+field request to the Product team to obtain this information from the CRDs instead of MongoDB and watch changes to 
+the CRDs to add audit events.
 
-- **Pods (head restart & status)**
-  - `delete`, `get`, `list`, `watch` on `pods` in `COMPUTE_NAMESPACE`
+The API does not currently support MPI clusters but could be extended to do so in the future.
 
-Example snippet:
 
-```yaml
-rules:
-- apiGroups: ["distributed-compute.dominodatalab.com"]
-  resources: ["rayclusters","daskclusters","sparkclusters"]
-  verbs: ["get","list","patch"]
-- apiGroups: [""]
-  resources: ["pods"]
-  verbs: ["get","list","watch","delete"]
-```
 
