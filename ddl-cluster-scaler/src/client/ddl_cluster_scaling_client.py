@@ -138,7 +138,7 @@ def get_cluster_status(cluster_kind: str = "rayclusters"):
     return resp.json()
 
 
-def scale_cluster(cluster_kind: str = "rayclusters", worker_hw_tier_name:str=None, replicas: int = 1):
+def scale_cluster(cluster_kind: str = "rayclusters", worker_hw_tier_name:str="Small", replicas: int = 1):
     """
     Scale a cluster's workers to `replicas`. Keeps the old interface:
       - `worker_hw_tier_name` is optional and passed through.
@@ -220,12 +220,12 @@ def wait_until_scaling_complete(cluster_kind: str = "rayclusters") -> bool:
     is_complete = is_restart_complete(cluster_kind,node_type="worker")
     while not is_complete:
         print("Scaling not yet done...")
-        time.sleep(2)
+        time.sleep(10)
         is_complete = is_restart_complete(cluster_kind,node_type="worker")
     return is_complete
 
 
-def restart_head_node(cluster_kind: str = "rayclusters",head_hw_tier_name:str=None):
+def restart_head_node(cluster_kind: str = "rayclusters",head_hw_tier_name:str="Small"):
     """
     Initiate a head restart by deleting the head pod.
     Server expects a started_at timestamp in the query; we generate one here.
@@ -259,18 +259,18 @@ def restart_head_node(cluster_kind: str = "rayclusters",head_hw_tier_name:str=No
     except Exception:
         return resp.text
 
-def wait_until_head_restart_complete(cluster_kind: str = "rayclusters",restart_ts:str="") -> bool:
+def wait_until_head_restart_complete(cluster_kind: str = "rayclusters") -> bool:
     """
     Poll until scaling completes. (No interface change: fixed 2s poll, no explicit timeout.)
     Returns True when complete.
     """
     print("Waiting 10 seconds to give the head node some time to scale before we start polling")
     time.sleep(10)
-    is_complete = is_restart_complete(cluster_kind,node_type="head",restart_ts=restart_ts)
+    is_complete = is_restart_complete(cluster_kind,node_type="head")
     while not is_complete:
         print("Head restart not yet...")
-        time.sleep(2)
-        is_complete = is_restart_complete(cluster_kind,node_type="worker",restart_ts=scale_start_ts)
+        time.sleep(10)
+        is_complete = is_restart_complete(cluster_kind,node_type="worker")
     return is_complete
 
 
