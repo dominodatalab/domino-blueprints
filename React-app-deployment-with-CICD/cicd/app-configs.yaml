@@ -1,0 +1,22 @@
+# Domino Configuration File
+# Basic connection settings
+username: "wasantha_gamage"
+domino_url: "domino.xyz.net"
+
+# Project settings
+project_name: "project_001"
+app_name: "my_app"
+app_description: "My custom app from API"
+
+# Repository settings
+repo_uri: "https://github.com/ddl-wasanthag/domino-react-app"
+repo_name: "domino-react-app"
+git_provider_name: "domino-git-credentails_001"
+github_pat: "ghp_<redacted>"
+
+# Domino compute Environment settings (required for create/start actions)
+environment_id: "680cc26e2ebdf7710b94f473"
+hardware_tier_id: "small"
+
+# Optional settings
+wait_for_project: true
