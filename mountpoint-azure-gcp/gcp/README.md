@@ -145,7 +145,7 @@ kubectl apply -f static_provisioning_domino.yaml
 
 ### Domino EDV configuration
 
-The above PV should appear as a generic EDV in the EDV section of the admin panel. Configure the EDV per the documentation: https://docs.dominodatalab.com/en/latest/user_guide/f12554/external-data-volumes-edvs/
+The above PV should appear as a generic EDV in the EDV section of the admin panel. Configure the EDV per the [documentation](https://docs.dominodatalab.com/en/latest/user_guide/f12554/external-data-volumes-edvs/)
 A successful setup of the EDV should look like the below screenshot.
 
 ![Domino EDV](images/edv_setup.png)

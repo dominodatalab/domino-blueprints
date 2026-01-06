@@ -26,7 +26,7 @@
 
 This guide describes how to expose **Azure Blob Storage (ADLS Gen2)** to **Domino** as a **mounted External Data Volume (EDV)** using Kubernetes CSI-based integration on **Azure Kubernetes Service (AKS)**.
 
-The goal is to allow data science teams to work with large datasets stored in Azure Blob Storage through **familiar filesystem paths** inside Domino workspaces, jobs, and apps—without copying or synchronizing data into Domino-managed storage.
+The goal is to allow data science teams to work with large datasets stored in Azure Blob Storage through **familiar filesystem paths** inside Domino workspaces, jobs, and apps without copying or synchronizing data into Domino-managed storage.
 
 By mounting object storage in place, this approach enables:
 
@@ -149,7 +149,7 @@ az storage container show \
 
 ### Step 4: Assign RBAC Roles to Kubelet Identity
 
-The kubelet identity requires **the specific roles** to mount and access blob storage:
+The kubelet identity requires **specific roles** to mount and access blob storage:
 
 #### Reader (Resource Group Scope)
 
