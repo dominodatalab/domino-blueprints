@@ -10,11 +10,12 @@
   - [Step 2: Verify storage account configuration](#step-2-verify-storage-account-configuration)
   - [Step 3: Verify container exists](#step-3-verify-container-exists)
   - [Step 4: Assign RBAC roles to the kubelet identity](#step-4-assign-rbac-roles-to-the-kubelet-identity)
-  - [Step 5: Verify Azure Blob CSI driver is enabled](#step-5-verify-azure-blob-csi-driver-is-enabled)
-  - [Step 6: Create a StorageClass](#step-6-create-a-storageclass)
-  - [Step 7: Create PersistentVolume and PersistentVolumeClaim](#step-7-create-persistentvolume-and-persistentvolumeclaim)
-  - [Step 8: Verify PVC binding](#step-8-verify-pvc-binding)
-  - [Step 9: Register the External Data Volume in Domino](#step-9-register-the-external-data-volume-in-domino)
+  - [Step 5: Configure Azure Workload Identity (Alternative to Steps 1–4)](#step-5-configure-azure-workload-identity-alternative-to-steps-1-4)
+  - [Step 6: Verify Azure Blob CSI driver is enabled](#step-6-verify-azure-blob-csi-driver-is-enabled)
+  - [Step 7: Create a StorageClass](#step-7-create-a-storageclass)
+  - [Step 8: Create PersistentVolume and PersistentVolumeClaim](#step-8-create-persistentvolume-and-persistentvolumeclaim)
+  - [Step 9: Verify PVC binding](#step-9-verify-pvc-binding)
+  - [Step 10: Register the External Data Volume in Domino](#step-10-register-the-external-data-volume-in-domino)
 - [Validation](#validation)
 - [Troubleshooting](#troubleshooting)
 - [Security Considerations](#security-considerations)
@@ -37,6 +38,24 @@ By mounting object storage in place, this approach enables:
 
 This guide focuses on **platform-level configuration** using the **Azure Blob CSI driver with BlobFuse2**, and exposes mounted storage to users through Domino External Data Volumes.
 
+### Supported authentication models
+
+Domino supports two Azure-native authentication models for mount-based access to Azure Blob Storage:
+- AKS kubelet managed identity 
+  - Node-level identity shared across workloads 
+  - Simpler to configure 
+  - Suitable for platform-wide or non-sensitive datasets
+- Azure Workload Identity (optional)
+  - Azure AD identity bound to a Kubernetes ServiceAccount 
+  - Enables least-privilege, per-EDV or per-namespace access 
+  - Does not require storage account keys 
+  - Recommended for environments with stronger security or compliance requirements
+
+Both models use the same CSI driver, BlobFuse2 mount mechanism, and Domino EDV abstraction.
+The difference is how Azure authentication is performed, not how data is mounted or accessed by users.
+
+From a Domino user’s perspective, the experience is identical: data appears as a standard filesystem path inside workspaces, jobs, and apps.
+
 ## Architecture overview
 
 The architecture below illustrates how Azure Blob Storage is exposed to Domino workloads through platform-managed mounting.
@@ -47,7 +66,9 @@ At a high level:
 
 - **Azure Blob Storage / ADLS Gen2** remains the system of record
 - The **Azure Blob CSI driver (BlobFuse2)** mounts storage at the Kubernetes node level
-- Authentication is handled using the **AKS kubelet managed identity**
+- Authentication is handled by either
+  - **AKS kubelet managed identity**
+  - **An Azure Workload Identity bound to a ServiceAccount**
 - The mounted path is registered in Domino as an **External Data Volume (EDV)**
 - Data is accessible inside Domino workspaces, jobs, and apps as a standard filesystem path (for example, `/mnt/adls/<container>`)
 
@@ -55,7 +76,7 @@ Key components include:
 
 - **Azure Storage Account (Blob / ADLS Gen2)**: Stores data externally in Azure
 - **AKS cluster**: Hosts Domino and manages node-level mounts
-- **Kubelet managed identity**: Authenticates storage access for all nodes
+- **Azure identity (Kubelet or workload)**: Authenticates storage access for all nodes
 - **Azure Blob CSI driver**: Performs filesystem translation outside user workloads
 - **Domino External Data Volume (EDV)**: Controls how mounted storage is exposed to users
 
@@ -80,9 +101,12 @@ Before proceeding, ensure that:
 - An **Azure Storage Account** exists with **ADLS Gen2 (Hierarchical Namespace)** enabled
 - The target **blob container** exists
 - The **Azure Blob CSI driver** is enabled on the AKS cluster (default for AKS ≥ 1.21)
-- You can assign RBAC roles to the AKS kubelet managed identity
+- You can assign RBAC roles to an Azure identity used by AKS (kubelet managed identity or Workload Identity)
 
 ## Configuration Steps
+
+> **Note:** The following steps use the **AKS kubelet managed identity** for authentication.
+> If you are using **Azure Workload Identity**, skip to **Step 5**.
 
 ### Step 1: Identify the AKS kubelet managed identity
 
@@ -196,9 +220,104 @@ az role assignment list \
 # Storage Account Key Operator Service Role .../storageAccounts/edvstoragetest
 ```
 
+### Step 5: Configure Azure Workload Identity (Alternative to Steps 1–4)
+
+> **Important:** If you follow Step 5, skip Steps 1–4 (do not do both).
+
+If you are using **Azure Workload Identity**, complete Step 5 and then continue to **Step 6**.
+
+This approach uses a **dedicated Azure AD managed identity** bound to a Kubernetes ServiceAccount and does not require storage account keys.
+
+#### Verify AKS OIDC Issuer is Enabled
+
+```bash
+az aks show \
+  --resource-group <AKS_RESOURCE_GROUP> \
+  --name <AKS_CLUSTER_NAME> \
+  --query "oidcIssuerProfile.issuerUrl" \
+  --output tsv
+```
+If no value is returned, enable OIDC and Workload Identity:
+
+```bash
+az aks update \
+  --resource-group <AKS_RESOURCE_GROUP> \
+  --name <AKS_CLUSTER_NAME> \
+  --enable-oidc-issuer \
+  --enable-workload-identity
+```
+Save the OIDC issuer URL for later use.
+
+#### Create a User-Assigned Managed Identity
+
+```bash
+az identity create \
+  --name domino-edv-blob-mi \
+  --resource-group <IDENTITY_RESOURCE_GROUP>
+```
+
+Retrieve and save the identity values:
+```bash
+# Client ID (used for ServiceAccount annotation)
+az identity show \
+  --name domino-edv-blob-mi \
+  --resource-group <IDENTITY_RESOURCE_GROUP> \
+  --query clientId \
+  --output tsv
+
+# Principal ID (used for RBAC)
+az identity show \
+  --name domino-edv-blob-mi \
+  --resource-group <IDENTITY_RESOURCE_GROUP> \
+  --query principalId \
+  --output tsv
+```
+
+#### Assign RBAC Role to the Managed Identity
+
+Grant data-plane access at the storage account scope:
+```bash
+az role assignment create \
+  --role "Storage Blob Data Contributor" \
+  --assignee <MANAGED_IDENTITY_PRINCIPAL_ID> \
+  --scope "/subscriptions/<SUBSCRIPTION_ID>/resourceGroups/<STORAGE_RESOURCE_GROUP>/providers/Microsoft.Storage/storageAccounts/<STORAGE_ACCOUNT_NAME>"
+```
+> **Note:** The `Storage Account Key Operator Service Role` is not required when using Workload Identity.
+
+#### Create Federated Identity Credential
+
+Create the federated trust between AKS and Azure AD.
+
+```bash
+az identity federated-credential create \
+  --name domino-edv-blob-federation \
+  --identity-name domino-edv-blob-mi \
+  --resource-group <IDENTITY_RESOURCE_GROUP> \
+  --issuer <AKS_OIDC_ISSUER_URL> \
+  --subject system:serviceaccount:domino-compute:domino-edv-blob-sa \
+  --audience api://AzureADTokenExchange
+```
+
+#### Create Kubernetes ServiceAccount
+> **Note:** Domino workloads that mount this EDV must run using the `domino-edv-blob-sa` ServiceAccount (configured at the platform/namespace level). If workloads run under a different ServiceAccount, token exchange will fail and the mount will be denied.
+
+Create the ServiceAccount that will be used by Domino workloads accessing the EDV.
+```yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: domino-edv-blob-sa
+  namespace: domino-compute
+  annotations:
+    azure.workload.identity/client-id: <MANAGED_IDENTITY_CLIENT_ID>
+```
+Apply it:
+```
+kubectl apply -f domino-edv-blob-sa.yaml
+```
 ---
 
-### Step 5: Verify Azure Blob CSI Driver is Enabled
+### Step 6: Verify Azure Blob CSI Driver is Enabled
 
 Check that the CSI driver is installed:
 ```bash
@@ -225,10 +344,8 @@ az aks update \
   --name <AKS_CLUSTER_NAME> \
   --enable-blob-driver
 ```
-
 ---
-
-### Step 6: Create StorageClass
+### Step 7: Create StorageClass
 
 Create a StorageClass for blob storage with BlobFuse2 protocol:
 ```bash
@@ -258,7 +375,7 @@ kubectl get storageclass azureblob-fuse-premium
 
 ---
 
-### Step 7: Create PersistentVolume and PersistentVolumeClaim
+### Step 8: Create PersistentVolume and PersistentVolumeClaim
 
 #### Create PersistentVolume
 ```bash
@@ -283,8 +400,7 @@ spec:
   mountOptions:
     - -o allow_other
     - --file-cache-timeout-in-seconds=120
-    # If this is ADLS Gen2 / HNS, uncomment:
-    # - --use-adls=true
+  # Optional: override mount options here if needed (StorageClass already sets --use-adls=true)
   csi:
     driver: blob.csi.azure.com
     volumeHandle: edv-<STORAGE_ACCOUNT_NAME>-<CONTAINER_NAME>-<ENV>
@@ -292,10 +408,14 @@ spec:
       containerName: <CONTAINER_NAME>
       resourceGroup: <STORAGE_RESOURCE_GROUP>
       storageAccount: <STORAGE_ACCOUNT_NAME>
+      # Workload Identity only:
+      # useAzureAD: "true"
   claimRef:
     name: edvstoragetest-azure-blob
     namespace: domino-compute
 ```
+> Workload Identity note: If you used Step 5, uncomment useAzureAD: "true" in volumeAttributes to enable Azure AD (keyless) auth.
+
 #### Create PersistentVolumeClaim
 ```bash
  kubectl apply -f azure-pvc.yml
@@ -318,7 +438,7 @@ spec:
   storageClassName: azureblob-fuse-premium
 ```
 
-### Step 8: Verify PVC Binding
+### Step 9: Verify PVC Binding
 ```bash
 # Check PersistentVolume status
 kubectl get pv edvstorage-pv-blob-azure -n domino-compute
@@ -339,7 +459,7 @@ kubectl get pvc edvstoragetest-azure-blob -n domino-compute
 
 ---
 
-### Step 9: Register External Data Volume in Domino
+### Step 10: Register External Data Volume in Domino
 The above PV should appear as a generic EDV in the EDV section of the admin panel. Configure the EDV per the documentation: https://docs.dominodatalab.com/en/latest/user_guide/f12554/external-data-volumes-edvs/\
 
 ![Register-EDV](images/edv-azure-blob.png)
@@ -375,7 +495,8 @@ kubectl logs -n kube-system -l app=csi-blob-node --tail=200
 
 1. `resourceGroup` missing in PV `volumeAttributes`
 2. Missing `resourceGroup` in the PV
-3. Missing `Storage Account Key Operator Service Role` on the kubelet identity
+3. **Kubelet identity path:** Missing `Storage Account Key Operator Service Role` on the kubelet identity
+4. **Workload identity path:** OIDC issuer not enabled, federated credential subject mismatch, or `useAzureAD: "true"` not set for the PV
 
 ---
 
@@ -407,6 +528,12 @@ az role assignment list \
 - Access uses a shared kubelet managed identity
 - Azure audit logs will show storage access under the kubelet identity
 - Use Domino controls and project-level EDV assignment to limit access
+
+### Workload Identity Model
+
+- Access uses a dedicated Azure AD managed identity bound to a Kubernetes ServiceAccount
+- No storage account keys are required
+- Enables least-privilege access per EDV or namespace (depending on how identities are scoped)
 
 ### Limitations
 
