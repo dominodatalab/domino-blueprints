@@ -249,7 +249,7 @@ az aks update \
 Save the OIDC issuer URL for later use.
 
 #### Create a User-Assigned Managed Identity
->> Note: This step can be completed using either the [Azure Portal](https://learn.microsoft.com/en-us/entra/identity/managed-identities-azure-resources/manage-user-assigned-managed-identities-azure-portal) or the [Azure CLI](https://learn.microsoft.com/en-us/cli/azure/identity?view=azure-cli-latest#az-identity-create).
+> Note: This step can be completed using either the [Azure Portal](https://learn.microsoft.com/en-us/entra/identity/managed-identities-azure-resources/manage-user-assigned-managed-identities-azure-portal) or the [Azure CLI](https://learn.microsoft.com/en-us/cli/azure/identity?view=azure-cli-latest#az-identity-create).
 ```bash
 az identity create \
   --name <MANAGED_IDENTITY_NAME> \
