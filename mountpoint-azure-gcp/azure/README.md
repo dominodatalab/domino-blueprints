@@ -249,10 +249,10 @@ az aks update \
 Save the OIDC issuer URL for later use.
 
 #### Create a User-Assigned Managed Identity
-
+>> Note: This step can be completed using either the [Azure Portal](https://learn.microsoft.com/en-us/entra/identity/managed-identities-azure-resources/manage-user-assigned-managed-identities-azure-portal) or the [Azure CLI](https://learn.microsoft.com/en-us/cli/azure/identity?view=azure-cli-latest#az-identity-create).
 ```bash
 az identity create \
-  --name domino-edv-blob-mi \
+  --name <MANAGED_IDENTITY_NAME> \
   --resource-group <IDENTITY_RESOURCE_GROUP>
 ```
 
@@ -260,14 +260,14 @@ Retrieve and save the identity values:
 ```bash
 # Client ID (used for ServiceAccount annotation)
 az identity show \
-  --name domino-edv-blob-mi \
+  --name <MANAGED_IDENTITY_NAME> \
   --resource-group <IDENTITY_RESOURCE_GROUP> \
   --query clientId \
   --output tsv
 
 # Principal ID (used for RBAC)
 az identity show \
-  --name domino-edv-blob-mi \
+  --name <MANAGED_IDENTITY_NAME> \
   --resource-group <IDENTITY_RESOURCE_GROUP> \
   --query principalId \
   --output tsv
@@ -290,13 +290,24 @@ Create the federated trust between AKS and Azure AD.
 
 ```bash
 az identity federated-credential create \
-  --name domino-edv-blob-federation \
-  --identity-name domino-edv-blob-mi \
+  --name <FEDERATED_CREDENTIAL_NAME> \
+  --identity-name <MANAGED_IDENTITY_NAME> \
   --resource-group <IDENTITY_RESOURCE_GROUP> \
   --issuer <AKS_OIDC_ISSUER_URL> \
-  --subject system:serviceaccount:domino-compute:domino-edv-blob-sa \
+  --subject system:serviceaccount:<NAMESPACE>:<SERVICEACCOUNT_NAME> \
   --audience api://AzureADTokenExchange
 ```
+> The `subject` must exactly match the Kubernetes ServiceAccount (`<NAMESPACE>`:`<SERVICEACCOUNT_NAME>`) used by Domino workloads that mount the EDV.
+
+Variables:
+- NAMESPACE: Kubernetes namespace where Domino compute runs (for example, domino-compute)
+- SERVICEACCOUNT_NAME: Kubernetes ServiceAccount used by Domino workloads to mount the EDV 
+- SERVICEACCOUNT_YAML_FILE: Path to the ServiceAccount manifest (for example, workload-identity-serviceaccount.yaml)
+- MANAGED_IDENTITY_NAME: User-assigned managed identity name 
+- MANAGED_IDENTITY_CLIENT_ID: Managed identity clientId (used in ServiceAccount annotation)
+- MANAGED_IDENTITY_PRINCIPAL_ID: Managed identity principalId (used for RBAC)
+- FEDERATED_CREDENTIAL_NAME: Federated credential name 
+- AKS_OIDC_ISSUER_URL: OIDC issuer URL from the AKS cluster
 
 #### Create Kubernetes ServiceAccount
 > **Note:** Domino workloads that mount this EDV must run using the `domino-edv-blob-sa` ServiceAccount (configured at the platform/namespace level). If workloads run under a different ServiceAccount, token exchange will fail and the mount will be denied.
@@ -306,14 +317,14 @@ Create the ServiceAccount that will be used by Domino workloads accessing the ED
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: domino-edv-blob-sa
+  name: <SERVICEACCOUNT_NAME>
   namespace: domino-compute
   annotations:
     azure.workload.identity/client-id: <MANAGED_IDENTITY_CLIENT_ID>
 ```
 Apply it:
 ```
-kubectl apply -f domino-edv-blob-sa.yaml
+kubectl apply -f <SERVICEACCOUNT_YAML_FILE>
 ```
 ---
 
