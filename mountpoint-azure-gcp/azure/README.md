@@ -228,6 +228,8 @@ If you are using **Azure Workload Identity**, complete Step 5 and then continue 
 
 This approach uses a **dedicated Azure AD managed identity** bound to a Kubernetes ServiceAccount and does not require storage account keys.
 
+> **Note:** Azure Workload Identity uses Microsoft Entra ID by default. When you create a user-assigned managed identity, Azure automatically creates the corresponding Entra ID service principal. You do not need to create a separate Entra AD application or service principal manually — the federated identity credential establishes trust between the Kubernetes ServiceAccount and this managed identity in Entra ID.
+
 #### Verify AKS OIDC Issuer is Enabled
 
 ```bash
