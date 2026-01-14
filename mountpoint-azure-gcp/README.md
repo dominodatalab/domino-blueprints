@@ -5,15 +5,15 @@ This repository provides a practical, cloud-native approach for exposing **Azure
 The goal is to enable data science teams to work with large, shared datasets through **familiar filesystem paths** inside Domino, while keeping cloud object storage as the system of record and avoiding data duplication.
 
 At a high level, cloud object storage is:
-- authenticated using **cloud-native identity** (Azure Managed Identity or GCP Workload Identity),
-- mounted at the **platform / Kubernetes layer** (not inside user workloads),
-- and exposed to Domino users as **EDVs**, preserving Domino’s security and isolation model.
+- Authenticated using **cloud-native identity** (Azure Managed Identity or GCP Workload Identity),
+- Mounted at the **platform / Kubernetes layer** (not inside user workloads),
+- And exposed to Domino users as **EDVs**, preserving Domino’s security and isolation model.
 
 ## Architecture overview
 
 The diagram below illustrates the conceptual flow for mount-based access in Domino:
 
-![High-Level Architecture: Mounted Object Storage in Domino](images/azure_gcp_architecture_diagram.png)
+![High-Level Architecture: Mounted Object Storage in Domino](images/azure_gcp_architecture_diagram-2.png)
 
 - Cloud object storage remains external to Domino
 - Mounting occurs outside user workspaces
