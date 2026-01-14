@@ -13,7 +13,7 @@ At a high level, cloud object storage is:
 
 The diagram below illustrates the conceptual flow for mount-based access in Domino:
 
-![High-Level Architecture: Mounted Object Storage in Domino](images/azure_gcp_architecture_diagram-2.png)
+![High-Level Architecture: Mounted Object Storage in Domino](images/azure_gcp_architecture_diagram.png)
 
 - Cloud object storage remains external to Domino
 - Mounting occurs outside user workspaces
