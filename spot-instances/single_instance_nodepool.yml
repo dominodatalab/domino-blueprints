@@ -1,0 +1,96 @@
+apiVersion: karpenter.sh/v1
+kind: NodePool
+metadata:
+  name: m52xlarge-on-demand
+spec:
+  weight: 10
+  disruption:
+    budgets:
+    - nodes: 10%
+    consolidateAfter: 5m
+    consolidationPolicy: WhenEmpty
+  limits:
+    cpu: 240
+    memory: 960Gi
+  template:
+    metadata:
+      labels:
+        dominodatalab.com/domino-node: "true"
+        dominodatalab.com/node-pool: m5.2xlarge
+        dominodatalab.com/capacity-type: on-demand
+    spec:
+      expireAfter: Never
+      nodeClassRef:
+        group: karpenter.k8s.aws
+        kind: EC2NodeClass
+        name: domino-eks-compute
+      requirements:
+      - key: kubernetes.io/arch
+        operator: In
+        values: ["amd64"]
+      - key: kubernetes.io/os
+        operator: In
+        values: ["linux"]
+      - key: karpenter.sh/capacity-type
+        operator: In
+        values: ["on-demand", "reserved"]
+      - key: karpenter.k8s.aws/instance-family
+        operator: In
+        values: ["m5"]
+      - key: karpenter.k8s.aws/instance-size
+        operator: In
+        values: ["2xlarge"]
+      - key: topology.kubernetes.io/zone
+        operator: In
+        values: ["us-east-1a", "us-east-1b", "us-east-1c"]
+      startupTaints:
+      - effect: NoExecute
+        key: ebs.csi.aws.com/agent-not-ready
+---
+apiVersion: karpenter.sh/v1
+kind: NodePool
+metadata:
+  name: m52xlarge-spot
+spec:
+  weight: 20
+  disruption:
+    budgets:
+      - nodes: 10%
+    consolidateAfter: 5m
+    consolidationPolicy: WhenEmpty
+  limits:
+    cpu: 240
+    memory: 960Gi
+  template:
+    metadata:
+      labels:
+        dominodatalab.com/domino-node: "true"
+        dominodatalab.com/node-pool: m5.2xlarge
+        dominodatalab.com/capacity-type: spot
+    spec:
+      expireAfter: Never
+      nodeClassRef:
+        group: karpenter.k8s.aws
+        kind: EC2NodeClass
+        name: domino-eks-compute
+      requirements:
+      - key: kubernetes.io/arch
+        operator: In
+        values: ["amd64"]
+      - key: kubernetes.io/os
+        operator: In
+        values: ["linux"]
+      - key: karpenter.sh/capacity-type
+        operator: In
+        values: ["spot"]
+      # Allow multiple families (general, compute, memory optimized)
+      - key: karpenter.k8s.aws/instance-family
+        operator: In
+        values: ["m5"]
+      # Allow sizes that fit ~2 CPU/6Gi pods but also scale up
+      - key: karpenter.k8s.aws/instance-size
+        operator: In
+        values: ["2xlarge"]
+      startupTaints:
+        - effect: NoExecute
+          key: ebs.csi.aws.com/agent-not-ready
