@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}Project Created — Study Publisher{% endblock %}
+
+{% block content %}
+<div class="success-panel">
+  <div class="success-icon" aria-hidden="true">&#10003;</div>
+  <h1>Project Created</h1>
+  <p class="success-message">
+    <strong>{{ project_name }}</strong> has been created successfully and your
+    Terms of Use acceptance has been recorded.
+  </p>
+
+  {% if project_id %}
+  <p class="project-id">Project ID: <code>{{ project_id }}</code></p>
+  {% endif %}
+
+  <div class="form-actions">
+    <a class="btn btn-primary" href="{{ url_for('main.index') }}">View My Projects</a>
+  </div>
+</div>
+{% endblock %}

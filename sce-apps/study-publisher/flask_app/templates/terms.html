@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+{% block title %}Terms of Use — Study Publisher{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>Terms of Use</h1>
+</div>
+
+<div class="summary-card">
+  <h2>Project Summary</h2>
+  <dl class="summary-list">
+    <dt>Study Code</dt>
+    <dd><span class="badge">{{ study_code }}</span></dd>
+    <dt>Project Name</dt>
+    <dd>{{ project_name }}</dd>
+    <dt>Description</dt>
+    <dd>{{ description }}</dd>
+  </dl>
+</div>
+
+{% if error %}
+<div class="alert alert-error">{{ error }}</div>
+{% endif %}
+
+<div class="terms-box">
+  <h2>Study Data Terms of Use <span class="terms-version">v{{ terms_version }}</span></h2>
+
+  <p>By creating this project and providing your digital signature below, you agree to the following terms:</p>
+
+  <ol class="terms-list">
+    <li>
+      <strong>Authorised Use.</strong>
+      You are authorised to access and work with data associated with the study code
+      <strong>{{ study_code }}</strong>. You will use this project solely for purposes
+      related to that study and will not use it to access, process, or store data
+      belonging to any other study.
+    </li>
+    <li>
+      <strong>Data Confidentiality.</strong>
+      All data, results, and materials within this project are confidential. You will not
+      share access, export, or disclose any project content to unauthorised parties.
+    </li>
+    <li>
+      <strong>Compliance.</strong>
+      You will comply with all applicable laws, regulations, institutional policies, and
+      sponsor agreements governing the study, including data privacy regulations (e.g.
+      GDPR, HIPAA) where applicable.
+    </li>
+    <li>
+      <strong>Data Integrity.</strong>
+      You will not alter, delete, or obscure study data in a way that could compromise the
+      integrity of the study findings or regulatory submissions.
+    </li>
+    <li>
+      <strong>Audit Trail.</strong>
+      You understand that all actions taken within this project are logged and may be
+      audited. Your digital signature is recorded with a timestamp and associated with
+      your Domino account.
+    </li>
+    <li>
+      <strong>Responsibility.</strong>
+      You accept full responsibility for all activity within this project conducted under
+      your credentials. You must notify your administrator immediately if you believe your
+      account has been compromised.
+    </li>
+    <li>
+      <strong>Single Project per Study Code.</strong>
+      You acknowledge that each study code may only be associated with one project.
+      Creating this project will consume the study code <strong>{{ study_code }}</strong>
+      and it cannot be reused.
+    </li>
+  </ol>
+</div>
+
+<form method="POST" action="{{ url_for('main.terms_post') }}" novalidate>
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+
+  <div class="form-group">
+    <label for="signature">Digital Signature</label>
+    <input
+      type="text"
+      id="signature"
+      name="signature"
+      required
+      maxlength="200"
+      placeholder="Type your full name to sign"
+      class="form-control"
+      autocomplete="off"
+    >
+    <small class="hint">
+      Type your full name exactly as it appears in your Domino account. This constitutes
+      your legally binding digital signature and acceptance of the terms above.
+    </small>
+  </div>
+
+  <div class="form-group checkbox-group">
+    <label class="checkbox-label">
+      <input type="checkbox" name="accept_terms" value="yes" required>
+      I have read and agree to the Terms of Use (v{{ terms_version }}) stated above.
+    </label>
+  </div>
+
+  <div class="form-actions">
+    <a class="btn btn-secondary" href="{{ url_for('main.create_get') }}">&larr; Cancel</a>
+    <button type="submit" class="btn btn-primary">Sign &amp; Create Project</button>
+  </div>
+</form>
+{% endblock %}
