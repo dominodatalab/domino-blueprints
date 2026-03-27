@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}My Study Projects — Study Publisher{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>My Study Projects</h1>
+  <a class="btn btn-primary" href="{{ url_for('main.create_get') }}">+ New Project</a>
+</div>
+
+{% if error %}
+<div class="alert alert-error">{{ error }}</div>
+{% endif %}
+
+{% if projects %}
+<table class="data-table">
+  <thead>
+    <tr>
+      <th>Study Code</th>
+      <th>Study Description</th>
+      <th>Project Name</th>
+      <th>Role</th>
+      <th>Visibility</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for p in projects %}
+    <tr>
+      <td><span class="badge">{{ p.study_code }}</span></td>
+      <td>{{ p.study_description }}</td>
+      <td>{{ p.name }}</td>
+      <td>
+        {% if p.ownerUsername == username %}
+          Owner
+        {% else %}
+          Collaborator
+        {% endif %}
+      </td>
+      <td>{{ p.visibility }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<div class="empty-state">
+  <p>You have no study projects yet.</p>
+  <a class="btn btn-primary" href="{{ url_for('main.create_get') }}">Create your first project</a>
+</div>
+{% endif %}
+{% endblock %}
