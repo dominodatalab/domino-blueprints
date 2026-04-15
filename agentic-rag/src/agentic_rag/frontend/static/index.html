@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agentic RAG - Aviation Safety Demo</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>✈️ Agentic RAG vs Traditional RAG</h1>
+            <p class="subtitle">Demonstrating intelligent retrieval for aviation safety questions</p>
+            <nav class="header-links">
+                <a href="presentation.html" target="_blank" class="presentation-link">📊 Presentation</a>
+                <a href="/docs" target="_blank">API Docs</a>
+            </nav>
+        </header>
+
+        <div class="main-content">
+            <!-- Query Input Section -->
+            <section class="query-section">
+                <div class="input-group">
+                    <label for="question">Enter your question:</label>
+                    <textarea id="question" rows="3" placeholder="Ask about aviation safety incidents, regulations, or compliance..."></textarea>
+                </div>
+
+                <div class="options-row">
+                    <div class="option-group">
+                        <label for="reranking-mode">Reranking:</label>
+                        <select id="reranking-mode">
+                            <option value="none">None (use retrieval scores)</option>
+                            <option value="cross_encoder">Cross-Encoder (recommended)</option>
+                        </select>
+                    </div>
+                    <div class="option-group">
+                        <label for="refinement-mode">Refinement:</label>
+                        <select id="refinement-mode">
+                            <option value="filter" selected>Filter (score, keep original)</option>
+                            <option value="dedup">Deduplicate (preserve text)</option>
+                            <option value="synthesize">Synthesize (compress, lossy)</option>
+                            <option value="none">None (raw retrieval)</option>
+                        </select>
+                    </div>
+                    <div class="option-group">
+                        <label for="top-k">Documents:</label>
+                        <input type="number" id="top-k" value="10" min="3" max="50">
+                    </div>
+                    <div class="option-group checkbox-group">
+                        <input type="checkbox" id="show-trace" checked>
+                        <label for="show-trace">Show Trace</label>
+                    </div>
+                </div>
+
+                <div class="button-row">
+                    <button id="btn-agentic" class="btn btn-primary">🤖 Run Agentic RAG</button>
+                    <button id="btn-baseline" class="btn btn-secondary">📊 Run Traditional RAG</button>
+                    <button id="btn-compare" class="btn btn-outline">⚖️ Compare Both</button>
+                </div>
+            </section>
+
+            <!-- Sample Questions -->
+            <section class="samples-section">
+                <h3>Quick Start</h3>
+                <div class="sample-questions">
+                    <button class="sample-btn" data-question="What are common causes of Cessna accidents?">Cessna Accidents</button>
+                    <button class="sample-btn" data-question="Show me helicopter accidents in mountainous terrain">Helicopter Crashes</button>
+                    <button class="sample-btn" data-question="What accidents involved engine failure during takeoff?">Engine Failures</button>
+                    <button class="sample-btn" data-question="What is the latest Boeing news?">Boeing News</button>
+                    <button class="sample-btn sample-btn-fail" data-question="What are the VFR weather minimums for Class B airspace?">Won't Work - No FAR Data</button>
+                </div>
+
+                <div class="query-categories">
+                    <h3>Browse by Category</h3>
+                    <div class="category-tabs">
+                        <button class="category-tab active" data-category="incidents">🔍 NTSB Incidents</button>
+                        <button class="category-tab" data-category="regulations">📜 FAR Regulations</button>
+                        <button class="category-tab" data-category="news">📰 Aviation News</button>
+                        <button class="category-tab" data-category="multi">🔗 Multi-Source</button>
+                    </div>
+
+                    <div class="category-content" id="category-incidents">
+                        <div class="query-grid">
+                            <button class="query-card" data-question="What are common causes of Cessna 172 accidents?">
+                                <span class="query-icon">✈️</span>
+                                <span class="query-text">Cessna 172 accident causes</span>
+                            </button>
+                            <button class="query-card" data-question="Show me incidents involving engine failure during takeoff">
+                                <span class="query-icon">🔧</span>
+                                <span class="query-text">Engine failure on takeoff</span>
+                            </button>
+                            <button class="query-card" data-question="What accidents have occurred due to fuel exhaustion?">
+                                <span class="query-icon">⛽</span>
+                                <span class="query-text">Fuel exhaustion accidents</span>
+                            </button>
+                            <button class="query-card" data-question="Describe helicopter accidents in mountainous terrain">
+                                <span class="query-icon">🚁</span>
+                                <span class="query-text">Helicopter mountain accidents</span>
+                            </button>
+                            <button class="query-card" data-question="What are the most common pilot errors leading to accidents?">
+                                <span class="query-icon">👨‍✈️</span>
+                                <span class="query-text">Common pilot errors</span>
+                            </button>
+                            <button class="query-card" data-question="Find incidents involving student pilots">
+                                <span class="query-icon">🎓</span>
+                                <span class="query-text">Student pilot incidents</span>
+                            </button>
+                            <button class="query-card" data-question="What accidents happened during instrument approaches in IMC?">
+                                <span class="query-icon">🌧️</span>
+                                <span class="query-text">IMC approach accidents</span>
+                            </button>
+                            <button class="query-card" data-question="Show me runway excursion incidents at major airports">
+                                <span class="query-icon">🛬</span>
+                                <span class="query-text">Runway excursions</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="category-content hidden" id="category-regulations">
+                        <div class="query-grid">
+                            <button class="query-card" data-question="What are the VFR weather minimums for Class B airspace?">
+                                <span class="query-icon">☁️</span>
+                                <span class="query-text">VFR Class B minimums</span>
+                            </button>
+                            <button class="query-card" data-question="Explain the requirements for a private pilot certificate">
+                                <span class="query-icon">📋</span>
+                                <span class="query-text">Private pilot requirements</span>
+                            </button>
+                            <button class="query-card" data-question="What medical certificate is required for commercial pilots?">
+                                <span class="query-icon">🏥</span>
+                                <span class="query-text">Commercial medical cert</span>
+                            </button>
+                            <button class="query-card" data-question="What are the rest requirements for Part 121 pilots?">
+                                <span class="query-icon">😴</span>
+                                <span class="query-text">Part 121 rest rules</span>
+                            </button>
+                            <button class="query-card" data-question="Describe the rules for flying near airports without control towers">
+                                <span class="query-icon">🗼</span>
+                                <span class="query-text">Non-towered airport rules</span>
+                            </button>
+                            <button class="query-card" data-question="What equipment is required for IFR flight?">
+                                <span class="query-icon">🎛️</span>
+                                <span class="query-text">IFR equipment required</span>
+                            </button>
+                            <button class="query-card" data-question="Explain the regulations for carrying hazardous materials">
+                                <span class="query-icon">☢️</span>
+                                <span class="query-text">Hazmat regulations</span>
+                            </button>
+                            <button class="query-card" data-question="What are the maintenance requirements for annual inspections?">
+                                <span class="query-icon">🔩</span>
+                                <span class="query-text">Annual inspection reqs</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="category-content hidden" id="category-news">
+                        <div class="query-grid">
+                            <button class="query-card" data-question="What are the latest developments in electric aircraft?">
+                                <span class="query-icon">🔋</span>
+                                <span class="query-text">Electric aircraft news</span>
+                            </button>
+                            <button class="query-card" data-question="Recent news about Boeing 737 MAX">
+                                <span class="query-icon">🛩️</span>
+                                <span class="query-text">Boeing 737 MAX updates</span>
+                            </button>
+                            <button class="query-card" data-question="Updates on FAA regulations">
+                                <span class="query-icon">🏛️</span>
+                                <span class="query-text">FAA regulation updates</span>
+                            </button>
+                            <button class="query-card" data-question="New aircraft certifications announced recently">
+                                <span class="query-icon">✅</span>
+                                <span class="query-text">New certifications</span>
+                            </button>
+                            <button class="query-card" data-question="Aviation industry labor news">
+                                <span class="query-icon">👷</span>
+                                <span class="query-text">Aviation labor news</span>
+                            </button>
+                            <button class="query-card" data-question="Developments in urban air mobility and eVTOL">
+                                <span class="query-icon">🏙️</span>
+                                <span class="query-text">Urban air mobility / eVTOL</span>
+                            </button>
+                            <button class="query-card" data-question="Recent airline safety incidents">
+                                <span class="query-icon">⚠️</span>
+                                <span class="query-text">Airline safety incidents</span>
+                            </button>
+                            <button class="query-card" data-question="Sustainable aviation fuel news">
+                                <span class="query-icon">🌱</span>
+                                <span class="query-text">Sustainable fuel news</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="category-content hidden" id="category-multi">
+                        <div class="query-grid">
+                            <button class="query-card query-card-wide" data-question="What regulations apply to flying in icing conditions and what accidents have occurred?">
+                                <span class="query-icon">❄️</span>
+                                <span class="query-text">Icing: regulations + accidents</span>
+                            </button>
+                            <button class="query-card query-card-wide" data-question="Compare pilot fatigue rules with actual fatigue-related incidents">
+                                <span class="query-icon">😫</span>
+                                <span class="query-text">Pilot fatigue: rules vs incidents</span>
+                            </button>
+                            <button class="query-card query-card-wide" data-question="What are the current rules for drone operations and any recent enforcement news?">
+                                <span class="query-icon">🤖</span>
+                                <span class="query-text">Drone ops: rules + enforcement</span>
+                            </button>
+                            <button class="query-card query-card-wide" data-question="Explain runway incursion regulations and show examples of incidents">
+                                <span class="query-icon">🚧</span>
+                                <span class="query-text">Runway incursions: regs + examples</span>
+                            </button>
+                            <button class="query-card query-card-wide" data-question="What training is required for mountain flying and what are common mountain accidents?">
+                                <span class="query-icon">🏔️</span>
+                                <span class="query-text">Mountain flying: training + accidents</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Results Section -->
+            <section class="results-section">
+                <div id="loading" class="loading hidden">
+                    <div class="spinner"></div>
+                    <span>Processing query...</span>
+                </div>
+
+                <div id="results" class="results-container">
+                    <!-- Results will be inserted here -->
+                </div>
+            </section>
+        </div>
+
+        <footer>
+            <p><strong>Traditional RAG:</strong> Query → Retrieve top-k → Generate</p>
+            <p><strong>Agentic RAG:</strong> Query → Classify Intent → Select Strategy → Hybrid Search → Refine Context → Evaluate Sufficiency → Generate Structured Answer</p>
+        </footer>
+    </div>
+
+    <script src="config.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
