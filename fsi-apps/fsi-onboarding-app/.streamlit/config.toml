@@ -1,0 +1,16 @@
+[theme]
+# Domino Design System Theme
+primaryColor = "#543FDE"           # Domino Purple
+backgroundColor = "#FAFAFA"         # Light background
+secondaryBackgroundColor = "#FFFFFF" # White cards
+textColor = "#2E2E38"              # Primary text
+font = "sans serif"                 # Inter loaded via CSS
+
+[server]
+# Enable headless mode for better performance
+headless = true
+runOnSave = false
+
+[browser]
+# Browser tab title
+gatherUsageStats = false

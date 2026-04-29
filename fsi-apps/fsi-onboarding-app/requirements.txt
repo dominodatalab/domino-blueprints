@@ -1,0 +1,7 @@
+# FSI Domino Onboarding App - Python Dependencies
+
+# Streamlit for web application - using older stable version to avoid conflicts
+streamlit==1.28.0
+
+# Additional dependencies for enhanced functionality
+# (Add more as needed based on future enhancements)
