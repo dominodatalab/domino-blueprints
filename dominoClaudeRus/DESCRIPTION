@@ -1,0 +1,22 @@
+Package: dominoClaudeRus
+Title: Claude-Powered RStudio Addins for Clinical Programming on Domino
+Version: 0.1.0
+Authors@R: person("Wasantha", "Gamage",
+    email = "wasantha.gamage@dominodatalab.com",
+    role = c("aut", "cre"))
+Description: RStudio addins that integrate Claude Code CLI into clinical
+    programming workflows for teams working in Domino workspaces. Provides
+    AI-assisted tools for R log analysis, CDISC data inspection, warning
+    remediation, Statistical Analysis Plan (SAP) review, and Domino job
+    configuration — all accessible directly from the RStudio Addins menu
+    without leaving the IDE.
+License: Apache License (>= 2)
+Encoding: UTF-8
+Imports:
+    rstudioapi (>= 0.13),
+    utils
+Suggests:
+    testthat (>= 3.0.0)
+Config/testthat/edition: 3
+URL: https://github.com/dominodatalab/domino-blueprints/tree/main/dominoClaudeRus
+BugReports: https://github.com/dominodatalab/domino-blueprints/issues

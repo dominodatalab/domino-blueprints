@@ -1,0 +1,24 @@
+Name: Claude: Check R Logs
+Description: Analyse selected R log output with Claude. Identifies errors, warnings, root causes and fixes — including silent issues common in clinical programming.
+Binding: addin_check_logs
+Interactive: false
+
+Name: Claude: Inspect Data
+Description: Review a data frame for CDISC ADaM/SDTM data quality issues. Select a variable name or type it when prompted. Sends structural metadata only — no patient data.
+Binding: addin_inspect_data
+Interactive: false
+
+Name: Claude: Fix R Warnings
+Description: Select a warning/error message for explanation and fix, or select R code to have it corrected in-place.
+Binding: addin_fix_warnings
+Interactive: false
+
+Name: Claude: Review SAP Section
+Description: Review selected SAP text against ICH E9 and CDISC ADaM standards. Flags ambiguities, missing specifications, and questions to raise before programming begins.
+Binding: addin_review_sap
+Interactive: false
+
+Name: Claude: Generate Job Config
+Description: Analyse the active R script and generate a recommended Domino job configuration including hardware tier, environment variables, and parallelisation opportunities.
+Binding: addin_generate_job_config
+Interactive: false
